@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
 const mainNav = [
-  { title: "SHOP ALL", href: "/shop" },
+  { title: "SHOP ALL", href: "/" },
   { title: "TOPS", href: "/tops" },
   { title: "BOTTOMS", href: "/bottoms" },
   { title: "OUTERWEAR", href: "/outerwear" },
