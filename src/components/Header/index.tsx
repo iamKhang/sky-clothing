@@ -10,12 +10,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 
 const mainNav = [
   { title: "SHOP ALL", href: "/" },
-  { title: "TOPS", href: "/tops" },
-  { title: "BOTTOMS", href: "/bottoms" },
-  { title: "OUTERWEAR", href: "/outerwear" },
-  { title: "BAGS", href: "/bags" },
-  { title: "ACCESSORIES", href: "/accessories" },
-  { title: "SALE", href: "/sale" },
+  { title: "TOPS", href: "/products/tops" },
+  { title: "BOTTOMS", href: "/products/bottoms" },
+  { title: "OUTERWEARS", href: "/products/outerwears" },
+  { title: "BAGS", href: "/products/bags" },
+  { title: "ACCESSORIES", href: "/products/accessories" },
+  { title: "SALES", href: "/sales" },
 ]
 
 export function Header() {

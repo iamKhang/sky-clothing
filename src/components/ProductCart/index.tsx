@@ -33,12 +33,12 @@ export function ProductCard({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative aspect-[3/4] overflow-hidden">
-        <Image
+        {/* <Image
           src={isHovered ? imgSub : imgMain}
           alt={name}
           fill
           className="object-cover"
-        />
+        /> */}
         <div className="absolute bottom-0 left-0 right-0 flex gap-4 transform transition-transform duration-300 ease-in-out translate-y-full group-hover:translate-y-0">
           <Button className="flex-1 rounded-none h-12 bg-black hover:bg-black/90">
             MUA NGAY
