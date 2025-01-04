@@ -7,6 +7,7 @@ import { Menu, Search, ShoppingCart } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { useCartStore } from '../../store/useCartStore'
 
 const mainNav = [
   { title: "SHOP ALL", href: "/" },
@@ -21,6 +22,7 @@ const mainNav = [
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
+  const { cart } = useCartStore()
   
   // Mock search results
   const searchResults = [
@@ -167,14 +169,30 @@ export function Header() {
                 </SheetHeader>
                 <div className="flex flex-1 flex-col justify-between">
                   <div className="mt-4">
-                    <p className="text-center text-muted-foreground">
-                      Hiện chưa có sản phẩm
-                    </p>
+                    {cart && cart.cartItems.length > 0 ? (
+                      <ul>
+                        {cart.cartItems.map((item) => (
+                          <li key={item.cartItemId} className="flex items-center justify-between py-2">
+                            <div>
+                              <p>{item.productVariant.color} - {item.productVariant.size}</p>
+                              <p>Số lượng: {item.quantity}</p>
+                            </div>
+                            <div>
+                              <img src={item.productVariant.productImages[0]} alt={item.productVariant.sku} className="h-16 w-16 object-cover" />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-center text-muted-foreground">
+                        Hiện chưa có sản phẩm
+                      </p>
+                    )}
                   </div>
                   <div className="mt-auto space-y-4">
                     <div className="flex items-center justify-between text-base font-medium">
                       <span>TOTAL</span>
-                      <span>0đ</span>
+                      <span>{cart ? cart.cartItems.reduce((total, item) => total + item.productVariant.quantity * item.quantity, 0) : 0}đ</span>
                     </div>
                     <div className="grid gap-2">
                       <Button className="w-full">XEM GIỎ HÀNG</Button>
@@ -192,4 +210,3 @@ export function Header() {
     </header>
   )
 }
-
