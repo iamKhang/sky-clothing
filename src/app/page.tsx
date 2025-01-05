@@ -70,6 +70,7 @@ export default function Home() {
               imgMain={product.mainImageUrl}
               imgSub={product.subImageUrl}
               colors={product.colors}
+              productId={product.productId}
             />
           ))}
         </div>

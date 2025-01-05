@@ -73,6 +73,7 @@ export default function CategoryProducts() {
               imgMain={product.mainImageUrl}
               imgSub={product.subImageUrl}
               colors={product.colors}
+              productId={product.productId}
             />
           ))}
         </div>
