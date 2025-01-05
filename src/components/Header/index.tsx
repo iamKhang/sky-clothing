@@ -1,13 +1,25 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
-import { Menu, Search, ShoppingCart } from 'lucide-react'
-
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { useCartStore } from '../../store/useCartStore'
+import { useCartStore } from "../../store/useCartStore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Menu, Search, ShoppingCart, X } from "lucide-react";
+import Link from "next/link";
+import * as React from "react";
+import { useState } from "react";
 
 const mainNav = [
   { title: "SHOP ALL", href: "/" },
@@ -17,13 +29,14 @@ const mainNav = [
   { title: "BAGS", href: "/products/bags" },
   { title: "ACCESSORIES", href: "/products/accessories" },
   { title: "SALES", href: "/sales" },
-]
+];
 
 export function Header() {
-  const [isSearchOpen, setIsSearchOpen] = React.useState(false)
-  const [searchQuery, setSearchQuery] = React.useState("")
-  const { cart } = useCartStore()
-  
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const { cart } = useCartStore();
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
   // Mock search results
   const searchResults = [
     {
@@ -31,16 +44,18 @@ export function Header() {
       name: "HADES STRIPED SOLID SHIRT",
       price: 432000,
       originalPrice: 480000,
-      image: "https://product.hstatic.net/1000306633/product/5_b24b96d2890043a78da683055f1d99ee.jpg"
+      image:
+        "https://product.hstatic.net/1000306633/product/5_b24b96d2890043a78da683055f1d99ee.jpg",
     },
     {
       id: 2,
       name: "HADES STANDARD STRIPLE SHORTS",
       price: 323000,
       originalPrice: 380000,
-      image: "https://product.hstatic.net/1000306633/product/5_b24b96d2890043a78da683055f1d99ee.jpg"
-    }
-  ]
+      image:
+        "https://product.hstatic.net/1000306633/product/5_b24b96d2890043a78da683055f1d99ee.jpg",
+    },
+  ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background">
@@ -49,7 +64,10 @@ export function Header() {
           <div className="flex items-center space-x-4 lg:space-x-6">
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" className="mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 md:hidden">
+                <Button
+                  variant="ghost"
+                  className="mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                >
                   <Menu size={24} />
                   <span className="sr-only">Toggle menu</span>
                 </Button>
@@ -71,10 +89,16 @@ export function Header() {
                 </nav>
                 <div className="mt-6 border-t pt-6">
                   <div className="flex flex-col space-y-3">
-                    <Link href="/login" className="text-lg font-medium hover:text-primary">
+                    <Link
+                      href="/login"
+                      className="text-lg font-medium hover:text-primary"
+                    >
                       ĐĂNG NHẬP
                     </Link>
-                    <Link href="/register" className="text-lg font-medium hover:text-primary">
+                    <Link
+                      href="/register"
+                      className="text-lg font-medium hover:text-primary"
+                    >
                       ĐĂNG KÝ
                     </Link>
                   </div>
@@ -85,34 +109,31 @@ export function Header() {
             <Link href="/" className="flex items-center space-x-2">
               <span className="font-bold text-xl">Sky-Clothing</span>
             </Link>
-
-            <nav className="hidden md:flex items-center space-x-4 lg:space-x-6">
-              {mainNav.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                >
-                  {item.title}
-                </Link>
-              ))}
-            </nav>
           </div>
 
           <div className="flex items-center space-x-4">
             <div className="hidden md:flex items-center space-x-2">
-              <Link href="/login" className="text-sm font-medium hover:text-primary">
+              <Link
+                href="/login"
+                className="text-sm font-medium hover:text-primary"
+              >
                 ĐĂNG NHẬP
               </Link>
               <span className="text-sm font-medium">/</span>
-              <Link href="/register" className="text-sm font-medium hover:text-primary">
+              <Link
+                href="/register"
+                className="text-sm font-medium hover:text-primary"
+              >
                 ĐĂNG KÝ
               </Link>
             </div>
 
             <Sheet open={isSearchOpen} onOpenChange={setIsSearchOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" className="px-2 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0">
+                <Button
+                  variant="ghost"
+                  className="px-2 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                >
                   <Search className="h-5 w-5" />
                   <span className="sr-only">Search products</span>
                 </Button>
@@ -131,7 +152,10 @@ export function Header() {
                   {searchQuery && (
                     <div className="space-y-4">
                       {searchResults.map((product) => (
-                        <div key={product.id} className="flex items-center space-x-4">
+                        <div
+                          key={product.id}
+                          className="flex items-center space-x-4"
+                        >
                           <img
                             src={product.image}
                             alt={product.name}
@@ -156,57 +180,127 @@ export function Header() {
               </SheetContent>
             </Sheet>
 
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" className="px-2 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0">
-                  <ShoppingCart className="h-5 w-5" />
-                  <span className="sr-only">Shopping cart</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-full sm:max-w-md">
-                <SheetHeader>
-                  <SheetTitle>GIỎ HÀNG</SheetTitle>
-                </SheetHeader>
-                <div className="flex flex-1 flex-col justify-between">
-                  <div className="mt-4">
+            {/* Desktop Cart with Popover */}
+            <div className="hidden md:block">
+              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="px-2 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                    onMouseEnter={() => setIsPopoverOpen(true)}
+                    onMouseLeave={() => setIsPopoverOpen(false)}
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    <span className="sr-only">Shopping cart</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[400px] p-[5%]"
+                  align="end"
+                  onMouseEnter={() => setIsPopoverOpen(true)}
+                  onMouseLeave={() => setIsPopoverOpen(false)}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm">Giỏ hàng</div>
+                  </div>
+                  <div className="space-y-4 max-h-[400px] overflow-auto p-[5%]">
                     {cart && cart.cartItems.length > 0 ? (
-                      <ul>
-                        {cart.cartItems.map((item) => (
-                          <li key={item.cartItemId} className="flex items-center justify-between py-2">
-                            <div>
-                              <p>{item.productVariant.color} - {item.productVariant.size}</p>
-                              <p>Số lượng: {item.quantity}</p>
+                      cart.cartItems.map((item) => (
+                        <div
+                          key={item.cartItemId}
+                          className="flex items-start gap-4 py-2"
+                        >
+                          <img
+                            src={item.productVariant.productImages[0]}
+                            alt={item.productVariant.sku}
+                            className="h-16 w-16 object-cover"
+                          />
+                          <div className="flex-1">
+                            <div className="flex justify-between">
+                              <p className="font-medium">
+                                {item.productVariant.color}
+                              </p>
+                              <button className="text-gray-500 hover:text-gray-700">
+                                <X className="h-4 w-4" />
+                              </button>
                             </div>
-                            <div>
-                              <img src={item.productVariant.productImages[0]} alt={item.productVariant.sku} className="h-16 w-16 object-cover" />
+                            <p className="text-sm text-gray-600">
+                              {item.productVariant.size}
+                            </p>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-sm">
+                                {item.quantity} × {item.productVariant.quantity}
+                                đ
+                              </span>
+                              <span className="font-medium">
+                                {(
+                                  item.quantity * item.productVariant.quantity
+                                ).toLocaleString()}
+                                đ
+                              </span>
                             </div>
-                          </li>
-                        ))}
-                      </ul>
+                          </div>
+                        </div>
+                      ))
                     ) : (
-                      <p className="text-center text-muted-foreground">
+                      <p className="text-center text-muted-foreground py-8">
                         Hiện chưa có sản phẩm
                       </p>
                     )}
                   </div>
-                  <div className="mt-auto space-y-4">
-                    <div className="flex items-center justify-between text-base font-medium">
-                      <span>TOTAL</span>
-                      <span>{cart ? cart.cartItems.reduce((total, item) => total + item.productVariant.quantity * item.quantity, 0) : 0}đ</span>
-                    </div>
-                    <div className="grid gap-2">
-                      <Button className="w-full">XEM GIỎ HÀNG</Button>
-                      <Button variant="outline" className="w-full">
-                        THANH TOÁN
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                  {cart && cart.cartItems.length > 0 && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between text-base">
+                          <span className="font-medium">Tổng số phụ:</span>
+                          <span className="font-medium">
+                            {cart.cartItems
+                              .reduce(
+                                (total, item) =>
+                                  total +
+                                  item.productVariant.quantity * item.quantity,
+                                0
+                              )
+                              .toLocaleString()}
+                            đ
+                          </span>
+                        </div>
+                        <div className="grid gap-2">
+                          <Link href="/cart">
+                            <Button className="w-full bg-black text-white hover:bg-gray-800">
+                              XEM GIỎ HÀNG
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="outline"
+                            className="w-full border-black hover:bg-gray-100"
+                          >
+                            THANH TOÁN
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Mobile Cart Link */}
+            <div className="md:hidden">
+              <Link href="/cart">
+                <Button
+                  variant="ghost"
+                  className="px-2 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  <span className="sr-only">Shopping cart</span>
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
     </header>
-  )
+  );
 }
