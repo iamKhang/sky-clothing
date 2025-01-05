@@ -5,6 +5,8 @@ import { colorMapping } from "@/utils/colorMapping";
 import Image from "next/image";
 import { useState } from "react";
 import { VariantSelectionModal } from "../VariantSelectionModal"; 
+import { useRouter } from "next/navigation";
+import { useUserStore } from '../../store/useUserStore'; // Adjust the import path as necessary
 
 interface ProductCardProps {
   name: string;
@@ -28,10 +30,16 @@ export function ProductCard({
   const [isHovered, setIsHovered] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [action, setAction] = useState<"buy" | "cart" | null>(null);
+  const router = useRouter();
+  const { user } = useUserStore();
 
   const discountedPrice = discount ? price * (1 - discount / 100) : price;
 
   const handleAction = (actionType: "buy" | "cart") => {
+    if (!user) {
+      router.push('/login'); // Redirect to login page if not logged in
+      return;
+    }
     setAction(actionType);
     setIsModalOpen(true);
   };
@@ -116,4 +124,3 @@ export function ProductCard({
     </>
   );
 }
-
