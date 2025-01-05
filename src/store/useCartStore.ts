@@ -29,8 +29,13 @@ interface CartState {
   clearCart: () => void;
 }
 
+const getCartFromLocalStorage = () => {
+  const cart = localStorage.getItem('cart');
+  return cart ? JSON.parse(cart) : null;
+};
+
 export const useCartStore = create<CartState>((set) => ({
-  cart: null,
+  cart: getCartFromLocalStorage(),
   fetchCart: async (jwt) => {
     try {
       const response = await axios.get('http://localhost:8080/api/cart/get', {
@@ -38,10 +43,14 @@ export const useCartStore = create<CartState>((set) => ({
           Authorization: `Bearer ${jwt}`,
         },
       });
+      localStorage.setItem('cart', JSON.stringify(response.data));
       set({ cart: response.data });
     } catch (error) {
       console.error('Error fetching cart:', error);
     }
   },
-  clearCart: () => set({ cart: null }),
+  clearCart: () => {
+    localStorage.removeItem('cart');
+    set({ cart: null });
+  },
 }));
