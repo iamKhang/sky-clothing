@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 interface UserState {
-  user: { email: string; jwt: string } | null;
-  setUser: (user: { email: string; jwt: string }) => void;
+  user: { email: string; jwt: string, fullName: string } | null;
+  setUser: (user: { email: string; jwt: string, fullName: string }) => void;
   clearUser: () => void;
 }
 

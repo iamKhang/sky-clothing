@@ -1,6 +1,9 @@
 "use client";
 
 import { useCartStore } from "../../store/useCartStore";
+import { useUserStore } from "../../store/useUserStore";
+import { colorMapping } from "../../utils/colorMapping";
+import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,7 +19,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, Search, ShoppingCart, X } from "lucide-react";
+import {
+  CircleUser,
+  CircleX,
+  Menu,
+  Plus,
+  Search,
+  ShoppingCart,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { useState } from "react";
@@ -36,6 +47,7 @@ export function Header() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const { cart } = useCartStore();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const { user } = useUserStore();
 
   // Mock search results
   const searchResults = [
@@ -113,21 +125,31 @@ export function Header() {
 
           <div className="flex items-center space-x-4">
             <div className="hidden md:flex items-center space-x-2">
-              <Link
-                href="/login"
-                className="text-sm font-medium hover:text-primary"
-              >
-                ĐĂNG NHẬP
-              </Link>
-              <span className="text-sm font-medium">/</span>
-              <Link
-                href="/register"
-                className="text-sm font-medium hover:text-primary"
-              >
-                ĐĂNG KÝ
-              </Link>
+              {user ? (
+                <div className="flex items-center space-x-2 ">
+                  <span className="text-lg font-semibold text-slate-600 uppercase hover:text-black">
+                    <span className="">Xin chao, </span>
+                    {user.fullName}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="text-sm font-medium hover:text-primary"
+                  >
+                    ĐĂNG NHẬP
+                  </Link>
+                  <span className="text-sm font-medium">/</span>
+                  <Link
+                    href="/register"
+                    className="text-sm font-medium hover:text-primary"
+                  >
+                    ĐĂNG KÝ
+                  </Link>
+                </>
+              )}
             </div>
-
             <Sheet open={isSearchOpen} onOpenChange={setIsSearchOpen}>
               <SheetTrigger asChild>
                 <Button
@@ -179,7 +201,6 @@ export function Header() {
                 </div>
               </SheetContent>
             </Sheet>
-
             {/* Desktop Cart with Popover */}
             <div className="hidden md:block">
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
@@ -195,65 +216,72 @@ export function Header() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="w-[400px] p-[5%]"
+                  className="w-[320px] p-0"
                   align="end"
                   onMouseEnter={() => setIsPopoverOpen(true)}
                   onMouseLeave={() => setIsPopoverOpen(false)}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm">Giỏ hàng</div>
+                  <div className="p-4 pb-2">
+                    <h3 className="font-medium">Giỏ hàng</h3>
                   </div>
-                  <div className="space-y-4 max-h-[400px] overflow-auto p-[5%]">
-                    {cart && cart.cartItems.length > 0 ? (
-                      cart.cartItems.map((item) => (
-                        <div
-                          key={item.cartItemId}
-                          className="flex items-start gap-4 py-2"
-                        >
-                          <img
-                            src={item.productVariant.productImages[0]}
-                            alt={item.productVariant.sku}
-                            className="h-16 w-16 object-cover"
-                          />
-                          <div className="flex-1">
-                            <div className="flex justify-between">
-                              <p className="font-medium">
-                                {item.productVariant.color}
-                              </p>
-                              <button className="text-gray-500 hover:text-gray-700">
-                                <X className="h-4 w-4" />
-                              </button>
+                  <ScrollArea className="h-[300px]">
+                    <div className="p-4 pt-2">
+                      {cart && cart.cartItems.length > 0 ? (
+                        <div className="space-y-4">
+                          {cart.cartItems.map((item) => (
+                            <div
+                              key={item.cartItemId}
+                              className="flex items-start gap-3 [&:not(:last-child)]:border-b border-gray-100 pb-4"
+                            >
+                              <div className="relative h-16 w-16 overflow-hidden bg-muted">
+                                <img
+                                  src={item.productVariant.productImages[0]}
+                                  alt={item.productVariant.sku}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                              <div className="flex flex-1 flex-col gap-1 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="font-medium line-clamp-1">
+                                    {item.productVariant.productName}
+                                  </span>
+                                  {/* <button className="ml-2 h-5 w-5"> */}
+                                  <CircleX className="h-5 w-5" />
+                                  {/* </button> */}
+                                </div>
+                                <span className="text-muted-foreground">
+                                  {item.productVariant.size}
+                                </span>
+                                <div className="flex justify-between">
+                                  <span>
+                                    {item.quantity} ×{" "}
+                                    {item.productVariant.quantity.toLocaleString()}
+                                    đ
+                                  </span>
+                                  <span className="font-medium">
+                                    {(
+                                      item.quantity *
+                                      item.productVariant.quantity
+                                    ).toLocaleString()}
+                                    đ
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-sm text-gray-600">
-                              {item.productVariant.size}
-                            </p>
-                            <div className="flex items-center justify-between mt-1">
-                              <span className="text-sm">
-                                {item.quantity} × {item.productVariant.quantity}
-                                đ
-                              </span>
-                              <span className="font-medium">
-                                {(
-                                  item.quantity * item.productVariant.quantity
-                                ).toLocaleString()}
-                                đ
-                              </span>
-                            </div>
-                          </div>
+                          ))}
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-center text-muted-foreground py-8">
-                        Hiện chưa có sản phẩm
-                      </p>
-                    )}
-                  </div>
+                      ) : (
+                        <p className="py-6 text-center text-sm text-muted-foreground">
+                          Hiện chưa có sản phẩm
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
                   {cart && cart.cartItems.length > 0 && (
-                    <>
-                      <Separator className="my-4" />
+                    <div className="border-t p-4">
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between text-base">
-                          <span className="font-medium">Tổng số phụ:</span>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Tổng số phụ:</span>
                           <span className="font-medium">
                             {cart.cartItems
                               .reduce(
@@ -267,25 +295,24 @@ export function Header() {
                           </span>
                         </div>
                         <div className="grid gap-2">
-                          <Link href="/cart">
-                            <Button className="w-full bg-black text-white hover:bg-gray-800">
+                          <Link href="/cart" className="block">
+                            <Button className="w-full bg-zinc-900 text-white hover:bg-zinc-800">
                               XEM GIỎ HÀNG
                             </Button>
                           </Link>
                           <Button
                             variant="outline"
-                            className="w-full border-black hover:bg-gray-100"
+                            className="w-full border-zinc-900"
                           >
                             THANH TOÁN
                           </Button>
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </PopoverContent>
               </Popover>
             </div>
-
             {/* Mobile Cart Link */}
             <div className="md:hidden">
               <Link href="/cart">

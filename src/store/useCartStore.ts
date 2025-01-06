@@ -3,6 +3,7 @@ import axios from 'axios';
 
 interface ProductVariant {
   variantId: string;
+  productName: string;
   sku: string;
   color: string;
   size: string;
