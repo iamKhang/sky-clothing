@@ -33,13 +33,9 @@ const LoginPage = () => {
         password
       });
       const { jwt, fullName } = response.data;
-      console.log('Login successful, JWT:', jwt);
       setError('');
-      // Store the JWT and user email in Zustand
       setUser({ email, jwt, fullName });
-      // Fetch the cart after login
       await fetchCart(jwt);
-      // Redirect to the home page
       router.push('/');
     } catch (error) {
       console.error('Error during login:', error);

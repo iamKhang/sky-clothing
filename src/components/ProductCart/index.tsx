@@ -14,7 +14,7 @@ interface ProductCardProps {
   discount?: number;
   imgMain: string;
   imgSub: string;
-  colors: string[];
+  availableColors: string[];
   productId: string;
 }
 
@@ -24,7 +24,7 @@ export function ProductCard({
   discount,
   imgMain,
   imgSub,
-  colors,
+  availableColors,
   productId,
 }: ProductCardProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -80,7 +80,7 @@ export function ProductCard({
           </div>
         </div>
         <div className="flex gap-2 mt-2 justify-center">
-          {colors.map((color) => (
+          {availableColors.map((color) => (
             <div
               key={color}
               className="w-4 h-4 rounded-full border border-gray-200"

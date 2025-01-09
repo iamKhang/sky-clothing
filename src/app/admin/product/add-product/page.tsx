@@ -1,428 +1,581 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useForm, useFieldArray, Controller } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import Image from 'next/image'
-import { Plus, X } from 'lucide-react'
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useState, useEffect } from "react";
+import { Plus, X } from "lucide-react";
 
-const colorOptions = [
-  { label: 'Red', value: 'RED', hex: '#C62300' },
-  { label: 'Green', value: 'GREEN', hex: '#3E7B27' },
-  { label: 'Blue', value: 'BLUE', hex: '#81BFDA' },
-  { label: 'Yellow', value: 'YELLOW', hex: '#FFB200' },
-  { label: 'Black', value: 'BLACK', hex: '#2A3335' },
-  { label: 'White', value: 'WHITE', hex: '#FFFFFF' },
-  { label: 'Orange', value: 'ORANGE', hex: '#EB5B00' },
-  { label: 'Pink', value: 'PINK', hex: '#D91656' },
-] as const
+// Enum cho status và category
+const ProductStatus = {
+  AVAILABLE: "AVAILABLE",
+  OUT_OF_STOCK: "OUT_OF_STOCK",
+  DISCONTINUED: "DISCONTINUED",
+} as const;
 
-const sizeOptions = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const
-const categoryOptions = ['TOP', 'BOTTOM', 'OUTERWEAR', 'BAG', 'ACCESSORIES'] as const
-const collectionOptions = ['Summer Collection', 'Winter Collection', 'Spring Collection', 'Fall Collection'] as const
+const ProductCategory = {
+  TOP: "TOP",
+  BOTTOM: "BOTTOM",
+  ACCESSORIES: "ACCESSORIES",
+} as const;
+
+const ColorOptions = {
+  WHITE: "WHITE",
+  BLACK: "BLACK",
+  RED: "RED",
+  BLUE: "BLUE",
+} as const;
+
+const SizeOptions = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+} as const;
+
+// Schema validation
+const variantSchema = z.object({
+  sku: z.string().min(1, "SKU là bắt buộc"),
+  color: z.nativeEnum(ColorOptions),
+  size: z.nativeEnum(SizeOptions),
+  quantity: z.number().min(0),
+  discountPercentage: z.number().min(0).max(100),
+  productImages: z.array(z.string()),
+});
 
 const productSchema = z.object({
-  name: z.string().min(1, 'Product name is required'),
-  description: z.string().min(1, 'Description is required'),
-  mainImageUrl: z.string().url('Invalid URL for main image').optional(),
-  subImageUrl: z.string().url('Invalid URL for sub image').optional(),
-  sizeChartUrl: z.string().url('Invalid URL for size chart').optional(),
-  status: z.enum(['AVAILABLE', 'OUT_OF_STOCK', 'COMING_SOON']),
-  price: z.number().positive('Price must be positive'),
-  category: z.enum(categoryOptions),
-  collections: z.array(z.string()).min(1, 'Select at least one collection'),
-  variants: z.array(z.object({
-    color: z.enum(colorOptions.map(c => c.value)),
-    images: z.array(z.string().url('Invalid image URL')),
-    sizes: z.array(z.object({
-      size: z.enum(sizeOptions),
-      quantity: z.number().int().nonnegative('Quantity must be a non-negative integer'),
-      discountPercentage: z.number().min(0).max(100, 'Discount must be between 0 and 100'),
-    })).min(1, 'At least one size is required'),
-  })).min(1, 'At least one variant is required'),
-})
+  name: z.string().min(1, "Tên sản phẩm là bắt buộc"),
+  description: z.string().min(1, "Mô tả sản phẩm là bắt buộc"),
+  mainImageUrl: z.string().url("URL hình ảnh chính không hợp lệ"),
+  subImageUrl: z.string().url("URL hình ảnh phụ không hợp lệ"),
+  sizeChartUrl: z.string().url("URL bảng size không hợp lệ"),
+  status: z.nativeEnum(ProductStatus),
+  price: z.number().positive("Giá phải lớn hơn 0"),
+  category: z.nativeEnum(ProductCategory),
+  collectionIds: z.array(z.string()),
+  variants: z.array(variantSchema),
+});
 
-type ProductFormData = z.infer<typeof productSchema>
+type ProductFormValues = z.infer<typeof productSchema>;
+
+// Thêm interface cho Collection
+interface Collection {
+  id: string;
+  name: string;
+}
 
 export default function AddProductPage() {
-  const [isUploading, setIsUploading] = useState(false)
+  const [availableCollections, setAvailableCollections] = useState<Collection[]>([]);
+  const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
+  const [variants, setVariants] = useState<any[]>([]);
 
-  const { register, control, handleSubmit, formState: { errors }, setValue, watch } = useForm<ProductFormData>({
+  // Fetch collections khi component mount
+  useEffect(() => {
+    const fetchCollections = async () => {
+      try {
+        const response = await fetch("http://localhost:8080/api/collections");
+        if (!response.ok) {
+          throw new Error("Không thể tải danh sách bộ sưu tập");
+        }
+        const data = await response.json();
+        setAvailableCollections(data);
+      } catch (error) {
+        console.error("Lỗi khi tải collections:", error);
+        alert("Không thể tải danh sách bộ sưu tập");
+      }
+    };
+
+    fetchCollections();
+  }, []);
+
+  const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      status: 'AVAILABLE',
+      name: "",
+      description: "",
+      mainImageUrl: "",
+      subImageUrl: "",
+      sizeChartUrl: "",
+      status: "AVAILABLE",
+      price: 0,
+      category: "TOP",
+      collectionIds: [],
       variants: [],
-      collections: [],
-    }
-  })
+    },
+  });
 
-  const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
-    control,
-    name: "variants",
-  })
+  const addVariant = () => {
+    const newVariant = {
+      sku: "",
+      color: "WHITE",
+      size: "S",
+      quantity: 0,
+      discountPercentage: 0,
+      productImages: [],
+    };
+    setVariants([...variants, newVariant]);
+    form.setValue("variants", [...variants, newVariant]);
+  };
 
-  const onSubmit = (data: ProductFormData) => {
-    console.log(data)
-    // Here you would typically send this data to your API
-  }
+  const removeVariant = (index: number) => {
+    const newVariants = variants.filter((_, i) => i !== index);
+    setVariants(newVariants);
+    form.setValue("variants", newVariants);
+  };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setIsUploading(true)
-      try {
-        // For demonstration, we're using a placeholder URL
-        setValue(field, URL.createObjectURL(file))
-      } catch (error) {
-        console.error('Error uploading image:', error)
-      } finally {
-        setIsUploading(false)
+  const onSubmit = async (data: ProductFormValues) => {
+    try {
+      const requestData = {
+        ...data,
+        collections: data.collectionIds.map(id => ({
+          id,
+          name: availableCollections.find(c => c.id === id)?.name
+        }))
+      };
+
+      const response = await fetch("http://localhost:8080/api/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Lỗi khi thêm sản phẩm");
       }
+
+      form.reset();
+      setSelectedCollections([]);
+      setVariants([]);
+      alert("Thêm sản phẩm thành công!");
+    } catch (error) {
+      console.error("Lỗi:", error);
+      alert(error instanceof Error ? error.message : "Có lỗi xảy ra khi thêm sản phẩm!");
     }
-  }
+  };
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Add New Product</h1>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Product Details</CardTitle>
-            <CardDescription>Enter the details for the new product</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                <TabsTrigger value="images">Images</TabsTrigger>
-                <TabsTrigger value="variants">Variants</TabsTrigger>
-              </TabsList>
-              <TabsContent value="basic" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Product Name</Label>
-                    <Input id="name" {...register('name')} />
-                    {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Price</Label>
-                    <Input id="price" type="number" step="0.01" {...register('price', { valueAsNumber: true })} />
-                    {errors.price && <p className="text-red-500 text-sm">{errors.price.message}</p>}
-                  </div>
+    <div className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Thêm Sản Phẩm Mới</h1>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Thông tin cơ bản */}
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tên sản phẩm</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Giá</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Mô tả</FormLabel>
+                <FormControl>
+                  <Textarea {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* URLs */}
+          <div className="grid grid-cols-3 gap-4">
+            <FormField
+              control={form.control}
+              name="mainImageUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL hình ảnh chính</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="subImageUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL hình ảnh phụ</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="sizeChartUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL bảng size</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Status và Category */}
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Trạng thái</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn trạng thái" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(ProductStatus).map(([key, value]) => (
+                        <SelectItem key={key} value={value}>
+                          {key}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Danh mục</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn danh mục" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(ProductCategory).map(([key, value]) => (
+                        <SelectItem key={key} value={value}>
+                          {key}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Collections */}
+          <div className="space-y-2">
+            <FormLabel>Bộ sưu tập</FormLabel>
+            <Select
+              onValueChange={(value) => {
+                const collection = availableCollections.find(c => c.id === value);
+                if (collection && !selectedCollections.some(sc => sc.id === collection.id)) {
+                  const newSelectedCollections = [...selectedCollections, collection];
+                  setSelectedCollections(newSelectedCollections);
+                  form.setValue("collectionIds", newSelectedCollections.map(c => c.id));
+                }
+              }}
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn bộ sưu tập" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {availableCollections.map((collection) => (
+                  <SelectItem 
+                    key={collection.id} 
+                    value={collection.id}
+                    disabled={selectedCollections.some(sc => sc.id === collection.id)}
+                  >
+                    {collection.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="flex flex-wrap gap-2 mt-2">
+              {selectedCollections.map((collection) => (
+                <div
+                  key={collection.id}
+                  className="flex items-center gap-1 bg-secondary p-2 rounded"
+                >
+                  <span>{collection.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newSelectedCollections = selectedCollections.filter(
+                        (sc) => sc.id !== collection.id
+                      );
+                      setSelectedCollections(newSelectedCollections);
+                      form.setValue(
+                        "collectionIds",
+                        newSelectedCollections.map((c) => c.id)
+                      );
+                    }}
+                    className="text-destructive"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" {...register('description')} />
-                  {errors.description && <p className="text-red-500 text-sm">{errors.description.message}</p>}
+              ))}
+            </div>
+          </div>
+
+          {/* Variants */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <FormLabel>Biến thể sản phẩm</FormLabel>
+              <Button type="button" onClick={addVariant}>
+                Thêm biến thể
+              </Button>
+            </div>
+            {variants.map((variant, index) => (
+              <div key={index} className="border p-4 rounded-lg space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-medium">Biến thể #{index + 1}</h3>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => removeVariant(index)}
+                  >
+                    Xóa
+                  </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Controller
-                      name="category"
-                      control={control}
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
+                  <FormField
+                    control={form.control}
+                    name={`variants.${index}.sku`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SKU</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`variants.${index}.color`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Màu sắc</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn màu" />
+                            </SelectTrigger>
+                          </FormControl>
                           <SelectContent>
-                            {categoryOptions.map((category) => (
-                              <SelectItem key={category} value={category}>{category}</SelectItem>
+                            {Object.entries(ColorOptions).map(([key, value]) => (
+                              <SelectItem key={key} value={value}>
+                                {key}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                      )}
-                    />
-                    {errors.category && <p className="text-red-500 text-sm">{errors.category.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Controller
-                      name="status"
-                      control={control}
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`variants.${index}.size`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kích cỡ</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn size" />
+                            </SelectTrigger>
+                          </FormControl>
                           <SelectContent>
-                            <SelectItem value="AVAILABLE">Available</SelectItem>
-                            <SelectItem value="OUT_OF_STOCK">Out of Stock</SelectItem>
-                            <SelectItem value="COMING_SOON">Coming Soon</SelectItem>
+                            {Object.entries(SizeOptions).map(([key, value]) => (
+                              <SelectItem key={key} value={value}>
+                                {key}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
-                      )}
-                    />
-                    {errors.status && <p className="text-red-500 text-sm">{errors.status.message}</p>}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Collections</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {collectionOptions.map((collection) => (
-                      <div key={collection} className="flex items-center space-x-2">
-                        <Controller
-                          name="collections"
-                          control={control}
-                          render={({ field }) => (
-                            <Checkbox
-                              id={collection}
-                              checked={field.value?.includes(collection)}
-                              onCheckedChange={(checked) => {
-                                return checked
-                                  ? field.onChange([...field.value, collection])
-                                  : field.onChange(field.value?.filter((value) => value !== collection))
-                              }}
-                            />
-                          )}
-                        />
-                        <label htmlFor={collection} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{collection}</label>
-                      </div>
-                    ))}
-                  </div>
-                  {errors.collections && <p className="text-red-500 text-sm">{errors.collections.message}</p>}
-                </div>
-              </TabsContent>
-              <TabsContent value="images" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mainImageUrl">Main Image</Label>
-                    <Input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={(e) => handleImageUpload(e, 'mainImageUrl')} 
-                      disabled={isUploading} 
-                    />
-                    {watch('mainImageUrl') && (
-                      <div className="mt-2">
-                        <Image src={watch('mainImageUrl')} alt="Main product image" width={200} height={200} className="object-cover rounded" />
-                      </div>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    {errors.mainImageUrl && <p className="text-red-500 text-sm">{errors.mainImageUrl.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subImageUrl">Sub Image</Label>
-                    <Input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={(e) => handleImageUpload(e, 'subImageUrl')} 
-                      disabled={isUploading} 
-                    />
-                    {watch('subImageUrl') && (
-                      <div className="mt-2">
-                        <Image src={watch('subImageUrl')} alt="Sub product image" width={200} height={200} className="object-cover rounded" />
-                      </div>
-                    )}
-                    {errors.subImageUrl && <p className="text-red-500 text-sm">{errors.subImageUrl.message}</p>}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sizeChartUrl">Size Chart URL</Label>
-                  <Input id="sizeChartUrl" {...register('sizeChartUrl')} />
-                  {errors.sizeChartUrl && <p className="text-red-500 text-sm">{errors.sizeChartUrl.message}</p>}
-                </div>
-              </TabsContent>
-              <TabsContent value="variants" className="space-y-4">
-                <ScrollArea className="h-[400px] w-full rounded-md border p-4">
-                  {variantFields.map((field, index) => (
-                    <Card key={field.id} className="mb-4">
-                      <CardHeader>
-                        <CardTitle className="text-lg">Color Variant {index + 1}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Color</Label>
-                          <Controller
-                            name={`variants.${index}.color`}
-                            control={control}
-                            render={({ field }) => (
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select color" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {colorOptions.map((color) => (
-                                    <SelectItem key={color.value} value={color.value}>
-                                      <div className="flex items-center space-x-2">
-                                        <span>{color.label}</span>
-                                        <span className="w-4 h-4 rounded-full" style={{ backgroundColor: color.hex }}></span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`variants.${index}.quantity`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Số lượng</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value))
+                            }
                           />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Images</Label>
-                          <Input 
-                            type="file" 
-                            accept="image/*" 
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  const currentImages = watch(`variants.${index}.images`) || [];
-                                  setValue(`variants.${index}.images`, [...currentImages, reader.result as string]);
-                                };
-                                reader.readAsDataURL(file);
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`variants.${index}.discountPercentage`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phần trăm giảm giá</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value))
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                {/* Product Images for variant */}
+                <FormField
+                  control={form.control}
+                  name={`variants.${index}.productImages`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hình ảnh sản phẩm (URLs)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Nhập URL và nhấn Enter để thêm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const input = e.currentTarget;
+                              if (input.value) {
+                                const newImages = [...field.value, input.value];
+                                field.onChange(newImages);
+                                input.value = "";
                               }
-                            }}
-                            disabled={isUploading} 
-                            multiple
-                          />
-                          <div className="grid grid-cols-3 gap-4 mt-2">
-                            <Controller
-                              name={`variants.${index}.images`}
-                              control={control}
-                              render={({ field }) => (
-                                <>
-                                  {field.value?.map((image, imgIndex) => (
-                                    <div key={imgIndex} className="relative">
-                                      <Image src={image} alt={`Variant image ${imgIndex + 1}`} width={100} height={100} className="object-cover rounded" />
-                                      <Button 
-                                        type="button" 
-                                        variant="destructive" 
-                                        size="icon"
-                                        className="absolute top-0 right-0 h-6 w-6" 
-                                        onClick={() => {
-                                          const newImages = [...field.value];
-                                          newImages.splice(imgIndex, 1);
-                                          field.onChange(newImages);
-                                        }}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </>
-                              )}
-                            />
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {field.value.map((url, imageIndex) => (
+                          <div
+                            key={imageIndex}
+                            className="flex items-center gap-1 bg-secondary p-2 rounded"
+                          >
+                            <span className="truncate max-w-[200px]">{url}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newImages = field.value.filter(
+                                  (_, i) => i !== imageIndex
+                                );
+                                field.onChange(newImages);
+                              }}
+                              className="text-destructive"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
-                        </div>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            ))}
+          </div>
 
-                        <div className="space-y-2">
-                          <Label>Sizes</Label>
-                          <Controller
-                            name={`variants.${index}.sizes`}
-                            control={control}
-                            render={({ field }) => (
-                              <div className="space-y-2">
-                                {field.value?.map((size, sizeIndex) => (
-                                  <div key={sizeIndex} className="flex items-center space-x-2">
-                                    <Select
-                                      value={size.size}
-                                      onValueChange={(value) => {
-                                        const newSizes = [...field.value];
-                                        newSizes[sizeIndex].size = value;
-                                        field.onChange(newSizes);
-                                      }}
-                                    >
-                                      <SelectTrigger className="w-[100px]">
-                                        <SelectValue placeholder="Size" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {sizeOptions.map((sizeOption) => (
-                                          <SelectItem key={sizeOption} value={sizeOption}>{sizeOption}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Input
-                                      type="number"
-                                      placeholder="Quantity"
-                                      value={size.quantity}
-                                      onChange={(e) => {
-                                        const newSizes = [...field.value];
-                                        newSizes[sizeIndex].quantity = parseInt(e.target.value);
-                                        field.onChange(newSizes);
-                                      }}
-                                      className="w-[100px]"
-                                    />
-                                    <Input
-                                      type="number"
-                                      placeholder="Discount %"
-                                      value={size.discountPercentage}
-                                      onChange={(e) => {
-                                        const newSizes = [...field.value];
-                                        newSizes[sizeIndex].discountPercentage = parseFloat(e.target.value);
-                                        field.onChange(newSizes);
-                                      }}
-                                      className="w-[100px]"
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="icon"
-                                      onClick={() => {
-                                        const newSizes = field.value.filter((_, i) => i !== sizeIndex);
-                                        field.onChange(newSizes);
-                                      }}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                ))}
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    field.onChange([
-                                      ...field.value,
-                                      { size: sizeOptions[0], quantity: 0, discountPercentage: 0 }
-                                    ]);
-                                  }}
-                                >
-                                  <Plus className="mr-2 h-4 w-4" /> Add Size
-                                </Button>
-                              </div>
-                            )}
-                          />
-                        </div>
-                      </CardContent>
-                      <CardFooter>
-                        <Button type="button" variant="destructive" onClick={() => removeVariant(index)}>
-                          Remove Variant
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </ScrollArea>
-                <Button
-                  type="button"
-                  onClick={() => 
-                    appendVariant({ 
-                      color: colorOptions[0].value, 
-                      images: [], 
-                      sizes: [{ size: sizeOptions[0], quantity: 0, discountPercentage: 0 }]
-                    })
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Add Color Variant
-                </Button>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit">Add Product</Button>
-          </CardFooter>
-        </Card>
-      </form>
+          <Button type="submit" className="w-full">
+            Thêm sản phẩm
+          </Button>
+        </form>
+      </Form>
     </div>
-  )
+  );
 }
-

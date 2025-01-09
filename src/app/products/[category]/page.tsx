@@ -5,6 +5,7 @@ import { Paginate } from "@/components/Paginate";
 import { ProductCard } from "@/components/ProductCart";
 import { useEffect, useState } from "react";
 import { useParams } from 'next/navigation';
+import Marquee from "react-fast-marquee";
 
 interface Product {
   productId: string;
@@ -13,7 +14,7 @@ interface Product {
   subImageUrl: string;
   price: number;
   maxDiscountPercentage: number;
-  colors: string[];
+  availableColors: string[];
 }
 
 interface ProductResponse {
@@ -61,9 +62,10 @@ export default function CategoryProducts() {
   };
 
   return (
-    <div className="py-8 mx-10">
-      <h1 className="text-2xl font-bold mb-6 capitalize">{category} Products</h1>
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+    <div>
+      <div className="py-8 mx-4 sm:mx-6 md:mx-10">
+        <h1 className="text-2xl font-bold mb-6 capitalize">{category} Products</h1>
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
           {products.map((product) => (
             <ProductCard
               key={product.productId}
@@ -72,17 +74,42 @@ export default function CategoryProducts() {
               discount={product.maxDiscountPercentage}
               imgMain={product.mainImageUrl}
               imgSub={product.subImageUrl}
-              colors={product.colors}
+              availableColors={product.availableColors}
               productId={product.productId}
             />
           ))}
         </div>
-      <div className="mt-8">
-        <Paginate
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
+        <div className="mt-8">
+          <Paginate
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </div>
+        <div className="bg-white py-4 overflow-y-hidden">
+          <Marquee gradient={false} speed={50} className="overflow-hidden">
+            <span
+              className="mx-8 text-6xl font-bold tracking-wider"
+              style={{
+                WebkitTextStroke: "1px black",
+                WebkitTextFillColor: "transparent",
+                whiteSpace: "nowrap",
+              }}
+            >
+              STREETWEAR BRAND LIMITED
+            </span>
+            <span
+              className="mx-8 text-6xl font-bold tracking-wider"
+              style={{
+                WebkitTextStroke: "1px black",
+                WebkitTextFillColor: "transparent",
+                whiteSpace: "nowrap",
+              }}
+            >
+              STREETWEAR BRAND LIMITED
+            </span>
+          </Marquee>
+        </div>
       </div>
     </div>
   );

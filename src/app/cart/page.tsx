@@ -6,6 +6,7 @@ import { useCartStore } from '@/store/useCartStore'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import Image from "next/image"
 
 export default function CartPage() {
   const { cart, updateQuantity, removeItem } = useCartStore()
@@ -15,10 +16,8 @@ export default function CartPage() {
   }
 
   const calculateTotal = () => {
-    if (!cart || !cart.cartItems) return 0
-    return cart.cartItems.reduce((total, item) => 
-      total + (item.productVariant.quantity * item.quantity), 0
-    )
+    if (!cart || !cart.items) return 0
+    return cart.totalAmount * 23500 // Sử dụng totalAmount từ cart
   }
 
   const handleQuantityChange = (itemId: string, newQuantity: number) => {
@@ -46,7 +45,7 @@ export default function CartPage() {
           </div>
           
           <div className="space-y-4">
-            {cart && cart.cartItems.map((item) => (
+            {cart?.items?.map((item) => (
               <div key={item.cartItemId} className="grid grid-cols-2 lg:grid-cols-12 gap-4 items-center border-b pb-4">
                 <div className="col-span-2 lg:col-span-6 flex gap-4">
                   <button 
@@ -56,20 +55,30 @@ export default function CartPage() {
                     <X className="h-4 w-4" />
                   </button>
                   <div className="flex gap-4 flex-1">
-                    <img 
-                      src={item.productVariant.productImages[0]} 
-                      alt={item.productVariant.sku}
-                      className="w-20 h-20 object-cover"
-                    />
+                    <div className="relative w-20 h-20">
+                      <Image 
+                        src={item.variant.productImages[0]} 
+                        alt={item.variant.sku}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                     <div>
-                      <h3 className="font-medium">{item.productVariant.color}</h3>
-                      <p className="text-sm text-gray-500">{item.productVariant.size}</p>
+                      <h3 className="font-medium">{item.variant.productName}</h3>
+                      <p className="text-sm text-gray-500">
+                        {item.variant.size} / {item.variant.color}
+                      </p>
+                      {item.variant.discountPercentage > 0 && (
+                        <p className="text-sm text-red-500">
+                          Giảm {item.variant.discountPercentage}%
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
                 
                 <div className="text-right lg:col-span-2">
-                  {item.productVariant.quantity.toLocaleString()}đ
+                  {(item.variant.quantity * 23500).toLocaleString()}đ
                 </div>
                 
                 <div className="lg:col-span-2">
@@ -77,6 +86,7 @@ export default function CartPage() {
                     <button 
                       className="p-2 hover:bg-gray-100"
                       onClick={() => handleQuantityChange(item.cartItemId, item.quantity - 1)}
+                      disabled={item.quantity <= 1}
                     >
                       <Minus className="h-4 w-4" />
                     </button>
@@ -86,10 +96,12 @@ export default function CartPage() {
                       onChange={(e) => handleInputChange(item.cartItemId, e)}
                       className="w-12 text-center border-x"
                       min="1"
+                      max={item.variant.quantity}
                     />
                     <button 
                       className="p-2 hover:bg-gray-100"
                       onClick={() => handleQuantityChange(item.cartItemId, item.quantity + 1)}
+                      disabled={item.quantity >= item.variant.quantity}
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -97,7 +109,7 @@ export default function CartPage() {
                 </div>
                 
                 <div className="text-right lg:col-span-2 font-medium">
-                  {calculateSubtotal(item.productVariant.quantity, item.quantity).toLocaleString()}đ
+                  {(item.itemTotal * 23500).toLocaleString()}đ
                 </div>
               </div>
             ))}

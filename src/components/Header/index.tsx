@@ -2,7 +2,6 @@
 
 import { useCartStore } from "../../store/useCartStore";
 import { useUserStore } from "../../store/useUserStore";
-import { colorMapping } from "../../utils/colorMapping";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +10,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -20,14 +18,12 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
-  CircleUser,
   CircleX,
   Menu,
-  Plus,
   Search,
   ShoppingCart,
-  X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
 import { useState } from "react";
@@ -178,7 +174,7 @@ export function Header() {
                           key={product.id}
                           className="flex items-center space-x-4"
                         >
-                          <img
+                          <Image
                             src={product.image}
                             alt={product.name}
                             className="h-16 w-16 object-cover"
@@ -201,7 +197,6 @@ export function Header() {
                 </div>
               </SheetContent>
             </Sheet>
-            {/* Desktop Cart with Popover */}
             <div className="hidden md:block">
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
@@ -226,44 +221,38 @@ export function Header() {
                   </div>
                   <ScrollArea className="h-[300px]">
                     <div className="p-4 pt-2">
-                      {cart && cart.cartItems.length > 0 ? (
+                      {cart && cart.items && cart.items.length > 0 ? (
                         <div className="space-y-4">
-                          {cart.cartItems.map((item) => (
+                          {cart.items.map((item) => (
                             <div
                               key={item.cartItemId}
                               className="flex items-start gap-3 [&:not(:last-child)]:border-b border-gray-100 pb-4"
                             >
                               <div className="relative h-16 w-16 overflow-hidden bg-muted">
-                                <img
-                                  src={item.productVariant.productImages[0]}
-                                  alt={item.productVariant.sku}
+                                <Image
+                                  src={item.variant.productImages[0]}
+                                  alt={item.variant.sku}
                                   className="h-full w-full object-cover"
+                                  width={100}
+                                  height={100}
                                 />
                               </div>
                               <div className="flex flex-1 flex-col gap-1 text-sm">
                                 <div className="flex justify-between">
                                   <span className="font-medium line-clamp-1">
-                                    {item.productVariant.productName}
+                                    {item.variant.productName}
                                   </span>
-                                  {/* <button className="ml-2 h-5 w-5"> */}
-                                  <CircleX className="h-5 w-5" />
-                                  {/* </button> */}
+                                  <CircleX className="h-5 w-5 cursor-pointer" />
                                 </div>
                                 <span className="text-muted-foreground">
-                                  {item.productVariant.size}
+                                  {item.variant.size} / {item.variant.color}
                                 </span>
                                 <div className="flex justify-between">
                                   <span>
-                                    {item.quantity} ×{" "}
-                                    {item.productVariant.quantity.toLocaleString()}
-                                    đ
+                                    {item.quantity} × ${item.variant.quantity}
                                   </span>
                                   <span className="font-medium">
-                                    {(
-                                      item.quantity *
-                                      item.productVariant.quantity
-                                    ).toLocaleString()}
-                                    đ
+                                    ${item.itemTotal.toFixed(2)}
                                   </span>
                                 </div>
                               </div>
@@ -277,21 +266,13 @@ export function Header() {
                       )}
                     </div>
                   </ScrollArea>
-                  {cart && cart.cartItems.length > 0 && (
+                  {cart && cart.items && cart.items.length > 0 && (
                     <div className="border-t p-4">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between text-sm">
-                          <span>Tổng số phụ:</span>
+                          <span>Tổng số tiền:</span>
                           <span className="font-medium">
-                            {cart.cartItems
-                              .reduce(
-                                (total, item) =>
-                                  total +
-                                  item.productVariant.quantity * item.quantity,
-                                0
-                              )
-                              .toLocaleString()}
-                            đ
+                            ${cart.totalAmount.toFixed(2)}
                           </span>
                         </div>
                         <div className="grid gap-2">

@@ -14,7 +14,7 @@ interface Product {
   subImageUrl: string;
   price: number;
   maxDiscountPercentage: number;
-  colors: string[];
+  availableColors: string[];
 }
 
 interface ProductResponse {
@@ -69,7 +69,7 @@ export default function Home() {
               discount={product.maxDiscountPercentage}
               imgMain={product.mainImageUrl}
               imgSub={product.subImageUrl}
-              colors={product.colors}
+              availableColors={product.availableColors}
               productId={product.productId}
             />
           ))}

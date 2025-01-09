@@ -1,14 +1,37 @@
 import { create } from 'zustand';
 
 interface UserState {
-  user: { email: string; jwt: string, fullName: string } | null;
-  setUser: (user: { email: string; jwt: string, fullName: string }) => void;
+  user: { email: string; jwt: string; fullName: string } | null;
+  setUser: (user: { email: string; jwt: string; fullName: string }) => void;
   clearUser: () => void;
 }
 
+// Thêm event listener để xóa data khi đóng tab
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('cart');
+  });
+}
+
 const getUserFromLocalStorage = () => {
-  const user = localStorage.getItem('user');
-  return user ? JSON.parse(user) : null;
+  try {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return null;
+    
+    const user = JSON.parse(userStr);
+    // Kiểm tra JWT có tồn tại không
+    if (!user.jwt) {
+      localStorage.removeItem('user');
+      return null;
+    }
+    
+    return user;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (error) {
+    localStorage.removeItem('user');
+    return null;
+  }
 };
 
 export const useUserStore = create<UserState>((set) => ({
@@ -19,6 +42,7 @@ export const useUserStore = create<UserState>((set) => ({
   },
   clearUser: () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('cart'); // Xóa cả cart khi logout
     set({ user: null });
   },
 }));
