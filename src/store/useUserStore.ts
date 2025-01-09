@@ -6,14 +6,7 @@ interface UserState {
   clearUser: () => void;
 }
 
-// Thêm event listener để xóa data khi đóng tab
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('cart');
-  });
-}
-
+// Bỏ event listener beforeunload để không xóa data khi đóng tab
 const getUserFromLocalStorage = () => {
   try {
     const userStr = localStorage.getItem('user');
@@ -27,7 +20,6 @@ const getUserFromLocalStorage = () => {
     }
     
     return user;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     localStorage.removeItem('user');
     return null;
@@ -42,7 +34,7 @@ export const useUserStore = create<UserState>((set) => ({
   },
   clearUser: () => {
     localStorage.removeItem('user');
-    localStorage.removeItem('cart'); // Xóa cả cart khi logout
+    localStorage.removeItem('cart');
     set({ user: null });
   },
 }));

@@ -40,7 +40,7 @@ const getCartFromLocalStorage = () => {
     const cartStr = localStorage.getItem('cart');
     if (!cartStr) return null;
 
-    // Kiểm tra xem user có đăng nhập không
+    // Kiểm tra user có đăng nhập không
     const userStr = localStorage.getItem('user');
     if (!userStr) {
       localStorage.removeItem('cart');
@@ -54,7 +54,6 @@ const getCartFromLocalStorage = () => {
     }
 
     return JSON.parse(cartStr);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     localStorage.removeItem('cart');
     return null;
@@ -70,11 +69,12 @@ export const useCartStore = create<CartState>((set) => ({
           Authorization: `Bearer ${jwt}`,
         },
       });
+      
+      // Lưu cart vào localStorage
       localStorage.setItem('cart', JSON.stringify(response.data));
       set({ cart: response.data });
     } catch (error) {
       console.error('Error fetching cart:', error);
-      // Nếu có lỗi (ví dụ JWT hết hạn), xóa dữ liệu
       localStorage.removeItem('cart');
       set({ cart: null });
     }
@@ -90,8 +90,8 @@ export const useCartStore = create<CartState>((set) => ({
         throw new Error('User not authenticated');
       }
 
-      // Gọi API cập nhật quantity
-      await axios.put(`http://localhost:8080/api/cart/update-quantity/${itemId}`, 
+      await axios.put(
+        `http://localhost:8080/api/cart/update-quantity/${itemId}`,
         { quantity },
         {
           headers: {
@@ -100,7 +100,7 @@ export const useCartStore = create<CartState>((set) => ({
         }
       );
 
-      // Sau khi cập nhật thành công, fetch lại cart mới
+      // Fetch lại cart và cập nhật localStorage
       await useCartStore.getState().fetchCart(user.jwt);
     } catch (error) {
       console.error('Error updating quantity:', error);
@@ -113,14 +113,13 @@ export const useCartStore = create<CartState>((set) => ({
         throw new Error('User not authenticated');
       }
 
-      // Gọi API xóa item
       await axios.delete(`http://localhost:8080/api/cart/remove/${itemId}`, {
         headers: {
           Authorization: `Bearer ${user.jwt}`,
         },
       });
 
-      // Sau khi xóa thành công, fetch lại cart mới
+      // Fetch lại cart và cập nhật localStorage
       await useCartStore.getState().fetchCart(user.jwt);
     } catch (error) {
       console.error('Error removing item:', error);
