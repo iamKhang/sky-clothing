@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Upload } from "lucide-react";
 
 // Enum cho status và category
 const ProductStatus = {
@@ -34,6 +34,8 @@ const ProductStatus = {
 const ProductCategory = {
   TOP: "TOP",
   BOTTOM: "BOTTOM",
+  OUTERWEAR: "OUTERWEAR",
+  BAG: "BAG",
   ACCESSORIES: "ACCESSORIES",
 } as const;
 
@@ -51,26 +53,52 @@ const SizeOptions = {
   XL: "XL",
 } as const;
 
-// Schema validation
+// Cập nhật interface để match với DTO
+interface ProductVariant {
+  variantId?: string;  // optional vì là create mới
+  sku: string;
+  color: string;
+  size: string;
+  quantity: number;
+  discountPercentage: number;
+  productImages: string[];
+  productName?: string;  // optional vì sẽ được set từ tên sản phẩm
+}
+
+interface ProductDetail {
+  productId?: string;  // optional vì là create mới
+  name: string;
+  mainImageUrl: string;
+  subImageUrl: string;
+  price: number;
+  status: string;
+  description: string;
+  sizeChartUrl: string;
+  category: string;
+  collectionId: string | null;
+  variants: ProductVariant[];
+}
+
+// Cập nhật schema validation
 const variantSchema = z.object({
   sku: z.string().min(1, "SKU là bắt buộc"),
   color: z.nativeEnum(ColorOptions),
   size: z.nativeEnum(SizeOptions),
-  quantity: z.number().min(0),
-  discountPercentage: z.number().min(0).max(100),
-  productImages: z.array(z.string()),
+  quantity: z.number().min(0, "Số lượng không được âm"),
+  discountPercentage: z.number().min(0, "Giảm giá không được âm").max(100, "Giảm giá không được vượt quá 100%"),
+  productImages: z.array(z.any()),
 });
 
 const productSchema = z.object({
   name: z.string().min(1, "Tên sản phẩm là bắt buộc"),
   description: z.string().min(1, "Mô tả sản phẩm là bắt buộc"),
-  mainImageUrl: z.string().url("URL hình ảnh chính không hợp lệ"),
-  subImageUrl: z.string().url("URL hình ảnh phụ không hợp lệ"),
-  sizeChartUrl: z.string().url("URL bảng size không hợp lệ"),
+  mainImageUrl: z.string(),
+  subImageUrl: z.string(),
+  sizeChartUrl: z.string(),
   status: z.nativeEnum(ProductStatus),
   price: z.number().positive("Giá phải lớn hơn 0"),
   category: z.nativeEnum(ProductCategory),
-  collectionIds: z.array(z.string()),
+  collectionId: z.string().nullable(),
   variants: z.array(variantSchema),
 });
 
@@ -78,14 +106,20 @@ type ProductFormValues = z.infer<typeof productSchema>;
 
 // Thêm interface cho Collection
 interface Collection {
-  id: string;
-  name: string;
+  collectionId: string;
+  collectionName: string;
 }
 
 export default function AddProductPage() {
   const [availableCollections, setAvailableCollections] = useState<Collection[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [variants, setVariants] = useState<any[]>([]);
+  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
+  const [subImageFile, setSubImageFile] = useState<File | null>(null);
+  const [sizeChartFile, setSizeChartFile] = useState<File | null>(null);
+  const [mainImageUrl, setMainImageUrl] = useState<string>('');
+  const [subImageUrl, setSubImageUrl] = useState<string>('');
+  const [sizeChartUrl, setSizeChartUrl] = useState<string>('');
 
   // Fetch collections khi component mount
   useEffect(() => {
@@ -117,7 +151,7 @@ export default function AddProductPage() {
       status: "AVAILABLE",
       price: 0,
       category: "TOP",
-      collectionIds: [],
+      collectionId: null,
       variants: [],
     },
   });
@@ -141,15 +175,95 @@ export default function AddProductPage() {
     form.setValue("variants", newVariants);
   };
 
+  const handleFileUpload = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('http://localhost:8080/api/files/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      return data.fileUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  };
+
   const onSubmit = async (data: ProductFormValues) => {
     try {
-      const requestData = {
-        ...data,
-        collections: data.collectionIds.map(id => ({
-          id,
-          name: availableCollections.find(c => c.id === id)?.name
-        }))
+      // Upload main images
+      if (mainImageFile) {
+        const mainImageUrl = await handleFileUpload(mainImageFile);
+        data.mainImageUrl = mainImageUrl;
+      }
+      if (subImageFile) {
+        const subImageUrl = await handleFileUpload(subImageFile);
+        data.subImageUrl = subImageUrl;
+      }
+      if (sizeChartFile) {
+        const sizeChartUrl = await handleFileUpload(sizeChartFile);
+        data.sizeChartUrl = sizeChartUrl;
+      }
+
+      // Upload variant images và format data
+      const processedVariants = await Promise.all(
+        data.variants.map(async (variant) => {
+          let uploadedImages: string[] = [];
+          if (variant.productImages?.length > 0) {
+            const formData = new FormData();
+            variant.productImages.forEach((file: File) => {
+              formData.append('files', file);
+            });
+
+            const response = await fetch('http://localhost:8080/api/files/upload-multiple', {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to upload variant images');
+            }
+
+            const uploadedData = await response.json();
+            uploadedImages = uploadedData.map((img: any) => img.fileUrl);
+          }
+
+          // Format variant theo DTO
+          return {
+            sku: variant.sku,
+            color: variant.color,
+            size: variant.size,
+            quantity: variant.quantity,
+            discountPercentage: variant.discountPercentage,
+            productImages: uploadedImages,
+            productName: data.name // Thêm tên sản phẩm vào variant
+          };
+        })
+      );
+
+      // Format request data theo ProductDetailDTO
+      const requestData: ProductDetail = {
+        name: data.name,
+        description: data.description,
+        mainImageUrl: data.mainImageUrl,
+        subImageUrl: data.subImageUrl,
+        sizeChartUrl: data.sizeChartUrl,
+        price: data.price,
+        status: data.status,
+        category: data.category,
+        collectionId: selectedCollections[0]?.collectionId || null, // Lấy collectionId đầu tiên hoặc null
+        variants: processedVariants
       };
+
+      console.log('Request data:', requestData);
 
       const response = await fetch("http://localhost:8080/api/products", {
         method: "POST",
@@ -161,12 +275,17 @@ export default function AddProductPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Lỗi khi thêm sản phẩm");
+        throw new Error(errorData.message || 'Failed to create product');
       }
 
+      // Reset form và state
       form.reset();
       setSelectedCollections([]);
       setVariants([]);
+      setMainImageFile(null);
+      setSubImageFile(null);
+      setSizeChartFile(null);
+      
       alert("Thêm sản phẩm thành công!");
     } catch (error) {
       console.error("Lỗi:", error);
@@ -235,9 +354,28 @@ export default function AddProductPage() {
               name="mainImageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL hình ảnh chính</FormLabel>
+                  <FormLabel>Hình ảnh chính</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setMainImageFile(file);
+                            field.onChange(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                      {field.value && (
+                        <img 
+                          src={field.value} 
+                          alt="Main preview" 
+                          className="w-32 h-32 object-cover rounded-md"
+                        />
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -249,9 +387,28 @@ export default function AddProductPage() {
               name="subImageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL hình ảnh phụ</FormLabel>
+                  <FormLabel>Hình ảnh phụ</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setSubImageFile(file);
+                            field.onChange(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                      {field.value && (
+                        <img 
+                          src={field.value} 
+                          alt="Sub preview" 
+                          className="w-32 h-32 object-cover rounded-md"
+                        />
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -263,9 +420,28 @@ export default function AddProductPage() {
               name="sizeChartUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL bảng size</FormLabel>
+                  <FormLabel>Bảng size</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setSizeChartFile(file);
+                            field.onChange(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                      {field.value && (
+                        <img 
+                          src={field.value} 
+                          alt="Size chart preview" 
+                          className="w-32 h-32 object-cover rounded-md"
+                        />
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -337,11 +513,11 @@ export default function AddProductPage() {
             <FormLabel>Bộ sưu tập</FormLabel>
             <Select
               onValueChange={(value) => {
-                const collection = availableCollections.find(c => c.id === value);
-                if (collection && !selectedCollections.some(sc => sc.id === collection.id)) {
+                const collection = availableCollections.find(c => c.collectionId === value);
+                if (collection && !selectedCollections.some(sc => sc.collectionId === collection.collectionId)) {
                   const newSelectedCollections = [...selectedCollections, collection];
                   setSelectedCollections(newSelectedCollections);
-                  form.setValue("collectionIds", newSelectedCollections.map(c => c.id));
+                  form.setValue("collectionId", collection.collectionId);
                 }
               }}
             >
@@ -353,11 +529,11 @@ export default function AddProductPage() {
               <SelectContent>
                 {availableCollections.map((collection) => (
                   <SelectItem 
-                    key={collection.id} 
-                    value={collection.id}
-                    disabled={selectedCollections.some(sc => sc.id === collection.id)}
+                    key={collection.collectionId} 
+                    value={collection.collectionId}
+                    disabled={selectedCollections.some(sc => sc.collectionId === collection.collectionId)}
                   >
-                    {collection.name}
+                    {collection.collectionName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -366,20 +542,20 @@ export default function AddProductPage() {
             <div className="flex flex-wrap gap-2 mt-2">
               {selectedCollections.map((collection) => (
                 <div
-                  key={collection.id}
+                  key={collection.collectionId}
                   className="flex items-center gap-1 bg-secondary p-2 rounded"
                 >
-                  <span>{collection.name}</span>
+                  <span>{collection.collectionName}</span>
                   <button
                     type="button"
                     onClick={() => {
                       const newSelectedCollections = selectedCollections.filter(
-                        (sc) => sc.id !== collection.id
+                        (sc) => sc.collectionId !== collection.collectionId
                       );
                       setSelectedCollections(newSelectedCollections);
                       form.setValue(
-                        "collectionIds",
-                        newSelectedCollections.map((c) => c.id)
+                        "collectionId",
+                        newSelectedCollections.length > 0 ? newSelectedCollections[0].collectionId : null
                       );
                     }}
                     className="text-destructive"
@@ -524,45 +700,41 @@ export default function AddProductPage() {
                   name={`variants.${index}.productImages`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Hình ảnh sản phẩm (URLs)</FormLabel>
+                      <FormLabel>Hình ảnh biến thể</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="Nhập URL và nhấn Enter để thêm"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const input = e.currentTarget;
-                              if (input.value) {
-                                const newImages = [...field.value, input.value];
-                                field.onChange(newImages);
-                                input.value = "";
-                              }
-                            }
-                          }}
-                        />
-                      </FormControl>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {field.value.map((url, imageIndex) => (
-                          <div
-                            key={imageIndex}
-                            className="flex items-center gap-1 bg-secondary p-2 rounded"
-                          >
-                            <span className="truncate max-w-[200px]">{url}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newImages = field.value.filter(
-                                  (_, i) => i !== imageIndex
-                                );
-                                field.onChange(newImages);
-                              }}
-                              className="text-destructive"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
+                        <div className="space-y-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              field.onChange(files);
+                            }}
+                          />
+                          <div className="grid grid-cols-4 gap-2">
+                            {field.value && field.value.map((file: File, imageIndex: number) => (
+                              <div key={imageIndex} className="relative">
+                                <img
+                                  src={URL.createObjectURL(file)}
+                                  alt={`Preview ${imageIndex}`}
+                                  className="w-full h-24 object-cover rounded"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newImages = field.value.filter((_: File, i: number) => i !== imageIndex);
+                                    field.onChange(newImages);
+                                  }}
+                                  className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
