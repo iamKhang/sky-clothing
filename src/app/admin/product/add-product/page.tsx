@@ -23,6 +23,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { Plus, X, Upload } from "lucide-react";
+import Image from "next/image";
 
 // Enum cho status và category
 const ProductStatus = {
@@ -44,13 +45,6 @@ const ColorOptions = {
   BLACK: "BLACK",
   RED: "RED",
   BLUE: "BLUE",
-} as const;
-
-const SizeOptions = {
-  S: "S",
-  M: "M",
-  L: "L",
-  XL: "XL",
 } as const;
 
 // Cập nhật interface để match với DTO
@@ -751,8 +745,8 @@ export default function AddProductPage() {
                 {variant.color && (
                   <ColorSizeTable
                     color={variant.color}
-                    variants={variants}
-                    setVariants={setVariants}
+                    variants={variants as ProductVariant[]}
+                    setVariants={(updatedVariants) => setVariants(updatedVariants as TempVariant[])}
                     index={index}
                     form={form}
                   />
@@ -784,20 +778,22 @@ export default function AddProductPage() {
                               const updatedVariants = [...variants];
                               updatedVariants[index] = {
                                 ...updatedVariants[index],
-                                productImages: files
+                                productImages: files.map(file => file.name)
                               };
                               setVariants(updatedVariants);
                               
-                              console.log(`Images added to variant ${index}:`, files);
+                              console.log(`Images added to variant ${index}:`, files.map(file => file.name));
                             }}
                           />
                           <div className="grid grid-cols-4 gap-2">
                             {variantImages[index]?.map((file: File, imageIndex: number) => (
                               <div key={imageIndex} className="relative">
-                                <img
+                                <Image
                                   src={URL.createObjectURL(file)}
                                   alt={`Preview ${imageIndex}`}
                                   className="w-full h-24 object-cover rounded"
+                                  width={100}
+                                  height={100}
                                 />
                                 <button
                                   type="button"
