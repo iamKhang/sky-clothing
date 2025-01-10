@@ -55,14 +55,12 @@ const SizeOptions = {
 
 // Cập nhật interface để match với DTO
 interface ProductVariant {
-  variantId?: string;  // optional vì là create mới
-  sku: string;
   color: string;
   size: string;
   quantity: number;
   discountPercentage: number;
   productImages: string[];
-  productName?: string;  // optional vì sẽ được set từ tên sản phẩm
+  productName?: string;
 }
 
 interface ProductDetail {
@@ -81,12 +79,12 @@ interface ProductDetail {
 
 // Cập nhật schema validation
 const variantSchema = z.object({
-  sku: z.string().min(1, "SKU là bắt buộc"),
-  color: z.nativeEnum(ColorOptions),
-  size: z.nativeEnum(SizeOptions),
-  quantity: z.number().min(0, "Số lượng không được âm"),
-  discountPercentage: z.number().min(0, "Giảm giá không được âm").max(100, "Giảm giá không được vượt quá 100%"),
+  color: z.string(),
+  size: z.string(),
+  quantity: z.number(),
+  discountPercentage: z.number(),
   productImages: z.array(z.any()),
+  productName: z.string().optional()
 });
 
 const productSchema = z.object({
@@ -110,16 +108,95 @@ interface Collection {
   collectionName: string;
 }
 
+// Thêm constant cho tất cả các size
+const ALL_SIZES = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+
+// Component cho bảng size của một màu
+const ColorSizeTable = ({ 
+  color, 
+  variants, 
+  setVariants, 
+  index,
+  form 
+}: { 
+  color: string;
+  variants: ProductVariant[];
+  setVariants: (variants: ProductVariant[]) => void;
+  index: number;
+  form: any;
+}) => {
+  return (
+    <div className="mt-4">
+      <table className="w-full border-collapse border">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border p-2">Size</th>
+            <th className="border p-2">Số lượng</th>
+            <th className="border p-2">Giảm giá (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ALL_SIZES.map((size, sizeIndex) => (
+            <tr key={size}>
+              <td className="border p-2">{size}</td>
+              <td className="border p-2">
+                <Input
+                  type="number"
+                  value={variants[index].sizes[sizeIndex]?.quantity || ''}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : parseInt(e.target.value);
+                    const updatedVariants = [...variants];
+                    updatedVariants[index].sizes[sizeIndex].quantity = value;
+                    setVariants(updatedVariants);
+                    form.setValue(`variants.${index}.sizes`, updatedVariants[index].sizes);
+                  }}
+                  className="w-full"
+                />
+              </td>
+              <td className="border p-2">
+                <Input
+                  type="number"
+                  value={variants[index].sizes[sizeIndex]?.discountPercentage || ''}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                    const updatedVariants = [...variants];
+                    updatedVariants[index].sizes[sizeIndex].discountPercentage = value;
+                    setVariants(updatedVariants);
+                    form.setValue(`variants.${index}.sizes`, updatedVariants[index].sizes);
+                  }}
+                  className="w-full"
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+// Thêm interface cho dữ liệu tạm thời
+interface TempVariant {
+  color: string;
+  sizes: {
+    size: string;
+    quantity: number;
+    discountPercentage: number;
+  }[];
+  productImages: string[];
+}
+
 export default function AddProductPage() {
   const [availableCollections, setAvailableCollections] = useState<Collection[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
-  const [variants, setVariants] = useState<any[]>([]);
+  const [variants, setVariants] = useState<TempVariant[]>([]);
   const [mainImageFile, setMainImageFile] = useState<File | null>(null);
   const [subImageFile, setSubImageFile] = useState<File | null>(null);
   const [sizeChartFile, setSizeChartFile] = useState<File | null>(null);
   const [mainImageUrl, setMainImageUrl] = useState<string>('');
   const [subImageUrl, setSubImageUrl] = useState<string>('');
   const [sizeChartUrl, setSizeChartUrl] = useState<string>('');
+  const [variantImages, setVariantImages] = useState<{ [key: number]: File[] }>({});
 
   // Fetch collections khi component mount
   useEffect(() => {
@@ -157,22 +234,30 @@ export default function AddProductPage() {
   });
 
   const addVariant = () => {
-    const newVariant = {
-      sku: "",
-      color: "WHITE",
-      size: "S",
+    const newVariant: ProductVariant = {
+      color: "",
+      size: "",
       quantity: 0,
       discountPercentage: 0,
-      productImages: [],
+      productImages: []
     };
+    
+    console.log('Current variants before adding:', variants);
     setVariants([...variants, newVariant]);
     form.setValue("variants", [...variants, newVariant]);
+    console.log('Updated variants after adding:', [...variants, newVariant]);
   };
 
   const removeVariant = (index: number) => {
+    // Log để debug
+    console.log('Current variants before removing:', variants);
+    
     const newVariants = variants.filter((_, i) => i !== index);
     setVariants(newVariants);
     form.setValue("variants", newVariants);
+    
+    // Log để debug
+    console.log('Updated variants after removing:', newVariants);
   };
 
   const handleFileUpload = async (file: File) => {
@@ -199,6 +284,10 @@ export default function AddProductPage() {
 
   const onSubmit = async (data: ProductFormValues) => {
     try {
+      // Log toàn bộ form data trước khi xử lý
+      console.log('Form data before processing:', data);
+      console.log('Current variants state:', variants);
+
       // Upload main images
       if (mainImageFile) {
         const mainImageUrl = await handleFileUpload(mainImageFile);
@@ -213,41 +302,53 @@ export default function AddProductPage() {
         data.sizeChartUrl = sizeChartUrl;
       }
 
-      // Upload variant images và format data
+      // Chuyển đổi variants từ dạng bảng sang dạng API yêu cầu
       const processedVariants = await Promise.all(
-        data.variants.map(async (variant) => {
+        variants.flatMap(async (variant) => {
+          console.log(`Processing variant with color ${variant.color}:`, variant);
+          
           let uploadedImages: string[] = [];
-          if (variant.productImages?.length > 0) {
+          // Upload ảnh cho variant
+          if (variantImages[variants.indexOf(variant)]?.length > 0) {
             const formData = new FormData();
-            variant.productImages.forEach((file: File) => {
+            variantImages[variants.indexOf(variant)].forEach((file: File) => {
               formData.append('files', file);
             });
 
-            const response = await fetch('http://localhost:8080/api/files/upload-multiple', {
-              method: 'POST',
-              body: formData,
-            });
+            try {
+              const response = await fetch('http://localhost:8080/api/files/upload-multiple', {
+                method: 'POST',
+                body: formData,
+              });
 
-            if (!response.ok) {
-              throw new Error('Failed to upload variant images');
+              if (!response.ok) {
+                throw new Error('Failed to upload variant images');
+              }
+
+              const uploadedData = await response.json();
+              uploadedImages = uploadedData.map((img: { fileUrl: string }) => img.fileUrl);
+            } catch (error) {
+              console.error('Error uploading variant images:', error);
+              throw error;
             }
-
-            const uploadedData = await response.json();
-            uploadedImages = uploadedData.map((img: any) => img.fileUrl);
           }
 
-          // Format variant theo DTO
-          return {
-            sku: variant.sku,
-            color: variant.color,
-            size: variant.size,
-            quantity: variant.quantity,
-            discountPercentage: variant.discountPercentage,
-            productImages: uploadedImages,
-            productName: data.name // Thêm tên sản phẩm vào variant
-          };
+          // Chuyển đổi mỗi size thành một variant riêng và trả về mảng phẳng
+          return variant.sizes
+            .filter(size => size.quantity > 0) // Chỉ lấy các size có số lượng > 0
+            .map(size => ({
+              color: variant.color,
+              size: size.size,
+              quantity: size.quantity,
+              discountPercentage: size.discountPercentage,
+              productImages: uploadedImages,
+              productName: data.name
+            }));
         })
       );
+
+      // Làm phẳng mảng variants
+      const flattenedVariants = processedVariants.flat();
 
       // Format request data theo ProductDetailDTO
       const requestData: ProductDetail = {
@@ -259,11 +360,11 @@ export default function AddProductPage() {
         price: data.price,
         status: data.status,
         category: data.category,
-        collectionId: selectedCollections[0]?.collectionId || null, // Lấy collectionId đầu tiên hoặc null
-        variants: processedVariants
+        collectionId: selectedCollections[0]?.collectionId || null,
+        variants: flattenedVariants // Sử dụng mảng phẳng
       };
 
-      console.log('Request data:', requestData);
+      console.log('Final request data:', requestData);
 
       const response = await fetch("http://localhost:8080/api/products", {
         method: "POST",
@@ -320,13 +421,27 @@ export default function AddProductPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Giá</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                  </FormControl>
+                  <div>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        value={field.value === 0 ? '' : field.value}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          field.onChange(value);
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        placeholder="Nhập giá"
+                        list="price-suggestions"
+                      />
+                    </FormControl>
+                    <datalist id="price-suggestions">
+                      <option value="5000" />
+                      <option value="50000" />
+                      <option value="500000" />
+                    </datalist>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -587,113 +702,62 @@ export default function AddProductPage() {
                     Xóa
                   </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name={`variants.${index}.sku`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SKU</FormLabel>
+                
+                <FormField
+                  control={form.control}
+                  name={`variants.${index}.color`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Màu sắc</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          const updatedVariants = [...variants];
+                          updatedVariants[index] = {
+                            ...updatedVariants[index],
+                            color: value,
+                            sizes: ALL_SIZES.map(size => ({
+                              size,
+                              quantity: 0,
+                              discountPercentage: 0
+                            }))
+                          };
+                          setVariants(updatedVariants);
+                        }}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
-                          <Input {...field} />
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn màu" />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`variants.${index}.color`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Màu sắc</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn màu" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {Object.entries(ColorOptions).map(([key, value]) => (
+                        <SelectContent>
+                          {Object.entries(ColorOptions)
+                            .filter(([_, value]) => 
+                              !variants.some((v, i) => i !== index && v.color === value)
+                            )
+                            .map(([key, value]) => (
                               <SelectItem key={key} value={value}>
                                 {key}
                               </SelectItem>
                             ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {variant.color && (
+                  <ColorSizeTable
+                    color={variant.color}
+                    variants={variants}
+                    setVariants={setVariants}
+                    index={index}
+                    form={form}
                   />
-                  <FormField
-                    control={form.control}
-                    name={`variants.${index}.size`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kích cỡ</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn size" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {Object.entries(SizeOptions).map(([key, value]) => (
-                              <SelectItem key={key} value={value}>
-                                {key}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`variants.${index}.quantity`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Số lượng</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(Number(e.target.value))
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`variants.${index}.discountPercentage`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phần trăm giảm giá</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(Number(e.target.value))
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                )}
+
                 {/* Product Images for variant */}
                 <FormField
                   control={form.control}
@@ -709,11 +773,26 @@ export default function AddProductPage() {
                             multiple
                             onChange={(e) => {
                               const files = Array.from(e.target.files || []);
+                              // Lưu files vào state variantImages
+                              setVariantImages(prev => ({
+                                ...prev,
+                                [index]: files
+                              }));
                               field.onChange(files);
+                              
+                              // Cập nhật variant state
+                              const updatedVariants = [...variants];
+                              updatedVariants[index] = {
+                                ...updatedVariants[index],
+                                productImages: files
+                              };
+                              setVariants(updatedVariants);
+                              
+                              console.log(`Images added to variant ${index}:`, files);
                             }}
                           />
                           <div className="grid grid-cols-4 gap-2">
-                            {field.value && field.value.map((file: File, imageIndex: number) => (
+                            {variantImages[index]?.map((file: File, imageIndex: number) => (
                               <div key={imageIndex} className="relative">
                                 <img
                                   src={URL.createObjectURL(file)}
@@ -723,8 +802,23 @@ export default function AddProductPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const newImages = field.value.filter((_: File, i: number) => i !== imageIndex);
-                                    field.onChange(newImages);
+                                    // Xóa ảnh khỏi variantImages
+                                    const newFiles = variantImages[index].filter((_, i) => i !== imageIndex);
+                                    setVariantImages(prev => ({
+                                      ...prev,
+                                      [index]: newFiles
+                                    }));
+                                    
+                                    // Cập nhật variant state
+                                    const updatedVariants = [...variants];
+                                    updatedVariants[index] = {
+                                      ...updatedVariants[index],
+                                      productImages: newFiles
+                                    };
+                                    setVariants(updatedVariants);
+                                    
+                                    field.onChange(newFiles);
+                                    console.log(`Image removed from variant ${index}:`, imageIndex);
                                   }}
                                   className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full"
                                 >
