@@ -32,11 +32,11 @@ import { useState } from "react";
 
 const mainNav = [
   { title: "SHOP ALL", href: "/" },
-  { title: "TOPS", href: "/products/tops" },
-  { title: "BOTTOMS", href: "/products/bottoms" },
-  { title: "OUTERWEARS", href: "/products/outerwears" },
-  { title: "BAGS", href: "/products/bags" },
-  { title: "ACCESSORIES", href: "/products/accessories" },
+  { title: "TOPS", href: "/category/tops" },
+  { title: "BOTTOMS", href: "/category/bottoms" },
+  { title: "OUTERWEARS", href: "/category/outerwears" },
+  { title: "BAGS", href: "/category/bags" },
+  { title: "ACCESSORIES", href: "/category/accessories" },
   { title: "SALES", href: "/sales" },
 ];
 
