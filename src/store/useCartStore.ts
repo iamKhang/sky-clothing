@@ -56,6 +56,7 @@ const getCartFromLocalStorage = () => {
     return JSON.parse(cartStr);
   } catch (error) {
     localStorage.removeItem('cart');
+    console.log(error)
     return null;
   }
 };
@@ -80,7 +81,6 @@ export const useCartStore = create<CartState>((set) => ({
     }
   },
   clearCart: () => {
-    localStorage.removeItem('cart');
     set({ cart: null });
   },
   updateQuantity: async (itemId, quantity) => {

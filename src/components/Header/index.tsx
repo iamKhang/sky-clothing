@@ -29,6 +29,8 @@ import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
 import { useState } from "react";
+import { authService } from '@/services/authService';
+import { useRouter } from 'next/navigation';
 
 const mainNav = [
   { title: "SHOP ALL", href: "/" },
@@ -45,9 +47,22 @@ export function Header() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const { cart } = useCartStore();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const { user, logout } = useUserStore();
+  const { user, clearUser } = useUserStore();
+  const router = useRouter();
+  const clearCart = useCartStore((state) => state.clearCart);
 
   const totalItems = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      clearUser();
+      clearCart();
+      router.push('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
@@ -99,7 +114,7 @@ export function Header() {
                       </>
                     ) : (
                       <button
-                        onClick={logout}
+                        onClick={handleLogout}
                         className="flex items-center py-3 text-base font-medium hover:text-primary transition-colors"
                       >
                         <LogOut className="mr-2 h-4 w-4" />
@@ -159,7 +174,7 @@ export function Header() {
                         <p className="text-sm font-bold truncate">{user.fullName}</p>
                         <div className="h-px bg-border my-2" />
                         <button
-                          onClick={logout}
+                          onClick={handleLogout}
                           className="flex items-center text-sm text-destructive hover:text-destructive/80 transition-colors"
                         >
                           <LogOut className="mr-2 h-4 w-4" />

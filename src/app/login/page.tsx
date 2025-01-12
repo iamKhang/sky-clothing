@@ -1,15 +1,15 @@
 'use client'
 
 import React, { useState } from 'react';
-import axios from 'axios';
-import { useUserStore } from '../../store/useUserStore';
-import { useCartStore } from '../../store/useCartStore';
+import { useUserStore } from '@/store/useUserStore';
+import { useCartStore } from '@/store/useCartStore';
+import { authService } from '@/services/authService';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Lock, AlertCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation';
 
 
 const LoginPage = () => {
@@ -28,17 +28,12 @@ const LoginPage = () => {
     }
 
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/authenticate', {
-        email,
-        password
-      });
-      const { jwt, fullName } = response.data;
-      setError('');
-      setUser({ email, jwt, fullName });
-      await fetchCart(jwt);
+      const authResponse = await authService.login(email, password);
+      setUser({ email, ...authResponse });
+      await fetchCart(authResponse.jwt);
       router.push('/');
     } catch (error) {
-      console.error('Error during login:', error);
+      console.error('Login error:', error);
       setError('Invalid email or password');
     }
   };

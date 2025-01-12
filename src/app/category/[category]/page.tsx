@@ -70,7 +70,7 @@ export default function CategoryProducts() {
             <ProductCard
               key={product.productId}
               name={product.name}
-              price={product.price * 23500} // Convert USD to VND
+              price={product.price}
               discount={product.maxDiscountPercentage}
               imgMain={product.mainImageUrl}
               imgSub={product.subImageUrl}

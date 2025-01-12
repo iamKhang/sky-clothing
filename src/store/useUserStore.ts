@@ -1,40 +1,42 @@
 import { create } from 'zustand';
+import { getCookies, clearCookies } from '@/app/actions/auth';
 
-interface UserState {
-  user: { email: string; jwt: string; fullName: string } | null;
-  setUser: (user: { email: string; jwt: string; fullName: string }) => void;
-  clearUser: () => void;
+interface User {
+  email: string;
+  jwt: string;
+  fullName: string;
 }
 
-// Bỏ event listener beforeunload để không xóa data khi đóng tab
-const getUserFromLocalStorage = () => {
-  try {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return null;
-    
-    const user = JSON.parse(userStr);
-    // Kiểm tra JWT có tồn tại không
-    if (!user.jwt) {
-      localStorage.removeItem('user');
-      return null;
-    }
-    
-    return user;
-  } catch (error) {
-    localStorage.removeItem('user');
-    return null;
-  }
-};
+interface UserState {
+  user: User | null;
+  setUser: (user: User) => void;
+  clearUser: () => Promise<void>;
+  initializeFromCookies: () => Promise<void>;
+}
 
 export const useUserStore = create<UserState>((set) => ({
-  user: getUserFromLocalStorage(),
+  user: null,
+  
   setUser: (user) => {
-    localStorage.setItem('user', JSON.stringify(user));
     set({ user });
   },
-  clearUser: () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('cart');
+  
+  clearUser: async () => {
+    await clearCookies();
     set({ user: null });
   },
+  
+  initializeFromCookies: async () => {
+    const { token, fullName } = await getCookies();
+    
+    if (token && fullName) {
+      set({
+        user: {
+          jwt: token,
+          fullName: fullName,
+          email: '' // Email sẽ được lấy từ decoded JWT nếu cần
+        }
+      });
+    }
+  }
 }));
