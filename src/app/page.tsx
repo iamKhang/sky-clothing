@@ -88,7 +88,7 @@ export default function Home() {
               style={{
                 WebkitTextStroke: "1px black",
                 WebkitTextFillColor: "transparent",
-                whiteSpace: "nowrap", // Ensure text does not wrap
+                whiteSpace: "nowrap", 
               }}
             >
               STREETWEAR BRAND LIMITED
@@ -98,7 +98,7 @@ export default function Home() {
               style={{
                 WebkitTextStroke: "1px black",
                 WebkitTextFillColor: "transparent",
-                whiteSpace: "nowrap", // Ensure text does not wrap
+                whiteSpace: "nowrap", 
               }}
             >
               STREETWEAR BRAND LIMITED
