@@ -24,37 +24,87 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { Plus, X, Upload } from "lucide-react";
 import Image from "next/image";
+import { colorMapping } from "@/utils/colorMapping";
 
-// Enum cho status và category
+// Thay thế các enum cũ bằng các constant mới
 const ProductStatus = {
   AVAILABLE: "AVAILABLE",
   OUT_OF_STOCK: "OUT_OF_STOCK",
   DISCONTINUED: "DISCONTINUED",
 } as const;
 
+// Mapping hiển thị cho status
+const StatusDisplay: Record<string, string> = {
+  AVAILABLE: "Available",
+  OUT_OF_STOCK: "Out of Stock",
+  DISCONTINUED: "Discontinued",
+};
+
+// Cấu trúc category mới
 const ProductCategory = {
-  TOP: "TOP",
-  BOTTOM: "BOTTOM",
-  OUTERWEAR: "OUTERWEAR",
-  BAG: "BAG",
-  ACCESSORIES: "ACCESSORIES",
+  TOP: {
+    name: "Top",
+    subCategories: {
+      TOP_TSHIRT: "T-Shirt",
+      TOP_SHIRT: "Shirt",
+      TOP_POLO: "Polo",
+    },
+  },
+  BOTTOM: {
+    name: "Bottom",
+    subCategories: {
+      BOTTOM_PANT: "Pant",
+      BOTTOM_SHORTPANT: "Short Pant",
+    },
+  },
+  OUTERWEAR: {
+    name: "Outerwear",
+    subCategories: {
+      OUTERWEAR_HOODIE: "Hoodie",
+      OUTERWEAR_HOODIE_ZIPPER: "Hoodie Zipper",
+      OUTERWEAR_SWEATER: "Sweater",
+      OUTERWEAR_JACKET: "Jacket",
+      OUTERWEAR_VARSITY: "Varsity",
+      OUTERWEAR_CARDIGAN: "Cardigan",
+    },
+  },
+  ACCESSORIES: {
+    name: "Accessories",
+    subCategories: {
+      ACCESSORIES_CAP: "Cap",
+      ACCESSORIES_MINI_SHOULDER_BAG: "Mini Shoulder Bag",
+      ACCESSORIES_TOTE_BAG: "Tote Bag",
+      ACCESSORIES_WALLET: "Wallet",
+      ACCESSORIES_SOCK: "Sock",
+      ACCESSORIES_SANDAL: "Sandal",
+    },
+  },
 } as const;
 
-const ColorOptions = {
-  WHITE: "WHITE",
-  BLACK: "BLACK",
-  RED: "RED",
-  BLUE: "BLUE",
-} as const;
+// Tạo mapping hiển thị cho màu sắc
+const ColorDisplay: Record<string, string> = Object.keys(colorMapping).reduce((acc, key) => {
+  // Chuyển đổi SNAKE_CASE thành Title Case
+  acc[key] = key.split('_').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+  return acc;
+}, {} as Record<string, string>);
 
 // Cập nhật interface để match với DTO
-interface ProductVariant {
-  color: string;
+interface ProductSize {
   size: string;
   quantity: number;
+  soldQuantity: number;
   discountPercentage: number;
+  active: boolean;
+  newProduct: boolean;
+  bestSeller: boolean;
+}
+
+interface ProductColor {
+  color: string;
   productImages: string[];
-  productName?: string;
+  sizes: ProductSize[];
 }
 
 interface ProductDetail {
@@ -68,17 +118,24 @@ interface ProductDetail {
   sizeChartUrl: string;
   category: string;
   collectionId: string | null;
-  variants: ProductVariant[];
+  colors: ProductColor[];
 }
 
 // Cập nhật schema validation
-const variantSchema = z.object({
-  color: z.string(),
+const sizeSchema = z.object({
   size: z.string(),
   quantity: z.number(),
+  soldQuantity: z.number(),
   discountPercentage: z.number(),
+  active: z.boolean(),
+  newProduct: z.boolean(),
+  bestSeller: z.boolean()
+});
+
+const colorSchema = z.object({
+  color: z.enum(Object.keys(colorMapping) as [string, ...string[]]),
   productImages: z.array(z.any()),
-  productName: z.string().optional()
+  sizes: z.array(sizeSchema)
 });
 
 const productSchema = z.object({
@@ -87,11 +144,15 @@ const productSchema = z.object({
   mainImageUrl: z.string(),
   subImageUrl: z.string(),
   sizeChartUrl: z.string(),
-  status: z.nativeEnum(ProductStatus),
+  status: z.enum(["AVAILABLE", "OUT_OF_STOCK", "DISCONTINUED"]),
   price: z.number().positive("Giá phải lớn hơn 0"),
-  category: z.nativeEnum(ProductCategory),
+  category: z.string().refine((val) => {
+    return Object.values(ProductCategory).some(mainCat => 
+      Object.keys(mainCat.subCategories).includes(val)
+    );
+  }, "Danh mục không hợp lệ"),
   collectionId: z.string().nullable(),
-  variants: z.array(variantSchema),
+  colors: z.array(colorSchema)
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -114,8 +175,8 @@ const ColorSizeTable = ({
   form 
 }: { 
   color: string;
-  variants: ProductVariant[];
-  setVariants: (variants: ProductVariant[]) => void;
+  variants: ProductSize[];
+  setVariants: (variants: ProductSize[]) => void;
   index: number;
   form: any;
 }) => {
@@ -130,19 +191,22 @@ const ColorSizeTable = ({
           </tr>
         </thead>
         <tbody>
-          {ALL_SIZES.map((size, sizeIndex) => (
-            <tr key={size}>
-              <td className="border p-2">{size}</td>
+          {variants.map((sizeData, sizeIndex) => (
+            <tr key={sizeData.size}>
+              <td className="border p-2">{sizeData.size}</td>
               <td className="border p-2">
                 <Input
                   type="number"
-                  value={variants[index].sizes[sizeIndex]?.quantity || ''}
+                  value={sizeData.quantity || ''}
                   onChange={(e) => {
                     const value = e.target.value === '' ? 0 : parseInt(e.target.value);
                     const updatedVariants = [...variants];
-                    updatedVariants[index].sizes[sizeIndex].quantity = value;
+                    updatedVariants[sizeIndex] = {
+                      ...updatedVariants[sizeIndex],
+                      quantity: value
+                    };
                     setVariants(updatedVariants);
-                    form.setValue(`variants.${index}.sizes`, updatedVariants[index].sizes);
+                    form.setValue(`colors.${index}.sizes`, updatedVariants);
                   }}
                   className="w-full"
                 />
@@ -150,13 +214,16 @@ const ColorSizeTable = ({
               <td className="border p-2">
                 <Input
                   type="number"
-                  value={variants[index].sizes[sizeIndex]?.discountPercentage || ''}
+                  value={sizeData.discountPercentage || ''}
                   onChange={(e) => {
                     const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                     const updatedVariants = [...variants];
-                    updatedVariants[index].sizes[sizeIndex].discountPercentage = value;
+                    updatedVariants[sizeIndex] = {
+                      ...updatedVariants[sizeIndex],
+                      discountPercentage: value
+                    };
                     setVariants(updatedVariants);
-                    form.setValue(`variants.${index}.sizes`, updatedVariants[index].sizes);
+                    form.setValue(`colors.${index}.sizes`, updatedVariants);
                   }}
                   className="w-full"
                 />
@@ -172,12 +239,31 @@ const ColorSizeTable = ({
 // Thêm interface cho dữ liệu tạm thời
 interface TempVariant {
   color: string;
+  productImages: string[];
   sizes: {
     size: string;
     quantity: number;
+    soldQuantity: number;
     discountPercentage: number;
+    active: boolean;
+    newProduct: boolean;
+    bestSeller: boolean;
   }[];
-  productImages: string[];
+}
+
+// Thêm interface cho response upload
+interface FileUploadResponse {
+  fileName: string | null;
+  fileUrl: string;
+  message: string;
+}
+
+// Add this interface near the top with other interfaces
+interface VariantImageMap {
+  [key: number]: {
+    files: File[];
+    previewUrls: string[];
+  };
 }
 
 export default function AddProductPage() {
@@ -190,7 +276,8 @@ export default function AddProductPage() {
   const [mainImageUrl, setMainImageUrl] = useState<string>('');
   const [subImageUrl, setSubImageUrl] = useState<string>('');
   const [sizeChartUrl, setSizeChartUrl] = useState<string>('');
-  const [variantImages, setVariantImages] = useState<{ [key: number]: File[] }>({});
+  const [variantImages, setVariantImages] = useState<VariantImageMap>({});
+  const [selectedMainCategory, setSelectedMainCategory] = useState<string>("");
 
   // Fetch collections khi component mount
   useEffect(() => {
@@ -223,23 +310,27 @@ export default function AddProductPage() {
       price: 0,
       category: "TOP",
       collectionId: null,
-      variants: [],
+      colors: [],
     },
   });
 
   const addVariant = () => {
-    const newVariant: ProductVariant = {
+    const newVariant: TempVariant = {
       color: "",
-      size: "",
-      quantity: 0,
-      discountPercentage: 0,
-      productImages: []
+      productImages: [],
+      sizes: ALL_SIZES.map(size => ({
+        size,
+        quantity: 0,
+        soldQuantity: 0,
+        discountPercentage: 0,
+        active: true,
+        newProduct: true,
+        bestSeller: false
+      }))
     };
     
-    console.log('Current variants before adding:', variants);
     setVariants([...variants, newVariant]);
-    form.setValue("variants", [...variants, newVariant]);
-    console.log('Updated variants after adding:', [...variants, newVariant]);
+    form.setValue("colors", [...variants, newVariant]);
   };
 
   const removeVariant = (index: number) => {
@@ -248,15 +339,17 @@ export default function AddProductPage() {
     
     const newVariants = variants.filter((_, i) => i !== index);
     setVariants(newVariants);
-    form.setValue("variants", newVariants);
+    form.setValue("colors", newVariants);
     
     // Log để debug
     console.log('Updated variants after removing:', newVariants);
   };
 
-  const handleFileUpload = async (file: File) => {
+  // Cập nhật hàm handleFileUpload
+  const handleFileUpload = async (file: File, productName: string) => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('productName', productName);
 
     try {
       const response = await fetch('http://localhost:8080/api/files/upload', {
@@ -268,7 +361,7 @@ export default function AddProductPage() {
         throw new Error('Upload failed');
       }
 
-      const data = await response.json();
+      const data: FileUploadResponse = await response.json();
       return data.fileUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -278,73 +371,62 @@ export default function AddProductPage() {
 
   const onSubmit = async (data: ProductFormValues) => {
     try {
-      // Log toàn bộ form data trước khi xử lý
       console.log('Form data before processing:', data);
       console.log('Current variants state:', variants);
 
-      // Upload main images
+      // 1. Upload main images first
       if (mainImageFile) {
-        const mainImageUrl = await handleFileUpload(mainImageFile);
+        const mainImageUrl = await handleFileUpload(mainImageFile, data.name);
         data.mainImageUrl = mainImageUrl;
       }
       if (subImageFile) {
-        const subImageUrl = await handleFileUpload(subImageFile);
+        const subImageUrl = await handleFileUpload(subImageFile, data.name);
         data.subImageUrl = subImageUrl;
       }
       if (sizeChartFile) {
-        const sizeChartUrl = await handleFileUpload(sizeChartFile);
+        const sizeChartUrl = await handleFileUpload(sizeChartFile, data.name);
         data.sizeChartUrl = sizeChartUrl;
       }
 
-      // Chuyển đổi variants từ dạng bảng sang dạng API yêu cầu
-      const processedVariants = await Promise.all(
-        variants.flatMap(async (variant) => {
-          console.log(`Processing variant with color ${variant.color}:`, variant);
-          
-          let uploadedImages: string[] = [];
-          // Upload ảnh cho variant
-          if (variantImages[variants.indexOf(variant)]?.length > 0) {
-            const formData = new FormData();
-            variantImages[variants.indexOf(variant)].forEach((file: File) => {
-              formData.append('files', file);
-            });
-
-            try {
-              const response = await fetch('http://localhost:8080/api/files/upload-multiple', {
-                method: 'POST',
-                body: formData,
-              });
-
-              if (!response.ok) {
-                throw new Error('Failed to upload variant images');
-              }
-
-              const uploadedData = await response.json();
-              uploadedImages = uploadedData.map((img: { fileUrl: string }) => img.fileUrl);
-            } catch (error) {
-              console.error('Error uploading variant images:', error);
-              throw error;
+      // 2. Process variants sequentially
+      const processedColors = [];
+      for (let i = 0; i < variants.length; i++) {
+        const variant = variants[i];
+        console.log(`Processing variant ${i} with color ${variant.color}:`, variant);
+        
+        let uploadedImages: string[] = [];
+        
+        // Upload images for current variant
+        if (variantImages[i]?.files.length > 0) {
+          try {
+            // Upload images one by one
+            for (const file of variantImages[i].files) {
+              const imageUrl = await handleFileUpload(file, data.name);
+              uploadedImages.push(imageUrl);
             }
+            console.log(`Successfully uploaded ${uploadedImages.length} images for variant ${i}`);
+          } catch (error) {
+            console.error(`Error uploading images for variant ${i}:`, error);
+            throw new Error(`Failed to upload images for ${variant.color} variant`);
           }
+        }
 
-          // Chuyển đổi mỗi size thành một variant riêng và trả về mảng phẳng
-          return variant.sizes
-            .filter(size => size.quantity > 0) // Chỉ lấy các size có số lượng > 0
-            .map(size => ({
-              color: variant.color,
-              size: size.size,
-              quantity: size.quantity,
-              discountPercentage: size.discountPercentage,
-              productImages: uploadedImages,
-              productName: data.name
-            }));
-        })
-      );
+        // Create color object with sizes
+        const colorData: ProductColor = {
+          color: variant.color,
+          productImages: uploadedImages,
+          sizes: variant.sizes.map(size => ({
+            ...size,
+            active: true,
+            newProduct: true,
+            bestSeller: false
+          }))
+        };
 
-      // Làm phẳng mảng variants
-      const flattenedVariants = processedVariants.flat();
+        processedColors.push(colorData);
+      }
 
-      // Format request data theo ProductDetailDTO
+      // Format request data
       const requestData: ProductDetail = {
         name: data.name,
         description: data.description,
@@ -355,11 +437,12 @@ export default function AddProductPage() {
         status: data.status,
         category: data.category,
         collectionId: selectedCollections[0]?.collectionId || null,
-        variants: flattenedVariants // Sử dụng mảng phẳng
+        colors: processedColors
       };
 
       console.log('Final request data:', requestData);
 
+      // Send request to create product
       const response = await fetch("http://localhost:8080/api/products", {
         method: "POST",
         headers: {
@@ -373,13 +456,14 @@ export default function AddProductPage() {
         throw new Error(errorData.message || 'Failed to create product');
       }
 
-      // Reset form và state
+      // Reset form and state
       form.reset();
       setSelectedCollections([]);
       setVariants([]);
       setMainImageFile(null);
       setSubImageFile(null);
       setSizeChartFile(null);
+      setVariantImages({});
       
       alert("Thêm sản phẩm thành công!");
     } catch (error) {
@@ -578,7 +662,7 @@ export default function AddProductPage() {
                     <SelectContent>
                       {Object.entries(ProductStatus).map(([key, value]) => (
                         <SelectItem key={key} value={value}>
-                          {key}
+                          {StatusDisplay[value]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -588,33 +672,60 @@ export default function AddProductPage() {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Danh mục</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn danh mục" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.entries(ProductCategory).map(([key, value]) => (
-                        <SelectItem key={key} value={value}>
-                          {key}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Danh mục</FormLabel>
+                    <div className="flex gap-2">
+                      <Select
+                        onValueChange={(value) => {
+                          setSelectedMainCategory(value);
+                          field.onChange(""); // Reset subcategory when main category changes
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn danh mục chính" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(ProductCategory).map(([key, value]) => (
+                            <SelectItem key={key} value={key}>
+                              {value.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {selectedMainCategory && (
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn danh mục phụ" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Object.entries(ProductCategory[selectedMainCategory as keyof typeof ProductCategory].subCategories)
+                              .map(([key, value]) => (
+                                <SelectItem key={key} value={key}>
+                                  {value}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
 
           {/* Collections */}
@@ -699,7 +810,7 @@ export default function AddProductPage() {
                 
                 <FormField
                   control={form.control}
-                  name={`variants.${index}.color`}
+                  name={`colors.${index}.color`}
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Màu sắc</FormLabel>
@@ -713,12 +824,16 @@ export default function AddProductPage() {
                             sizes: ALL_SIZES.map(size => ({
                               size,
                               quantity: 0,
-                              discountPercentage: 0
+                              soldQuantity: 0,
+                              discountPercentage: 0,
+                              active: true,
+                              newProduct: true,
+                              bestSeller: false
                             }))
                           };
                           setVariants(updatedVariants);
                         }}
-                        defaultValue={field.value}
+                        value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -726,13 +841,19 @@ export default function AddProductPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.entries(ColorOptions)
-                            .filter(([_, value]) => 
-                              !variants.some((v, i) => i !== index && v.color === value)
+                          {Object.entries(colorMapping)
+                            .filter(([key, _]) => 
+                              !variants.some((v, i) => i !== index && v.color === key)
                             )
-                            .map(([key, value]) => (
-                              <SelectItem key={key} value={value}>
-                                {key}
+                            .map(([key, hexCode]) => (
+                              <SelectItem key={key} value={key}>
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    className="w-4 h-4 rounded-full border border-gray-300" 
+                                    style={{ backgroundColor: hexCode }}
+                                  />
+                                  <span>{ColorDisplay[key]}</span>
+                                </div>
                               </SelectItem>
                             ))}
                         </SelectContent>
@@ -745,8 +866,15 @@ export default function AddProductPage() {
                 {variant.color && (
                   <ColorSizeTable
                     color={variant.color}
-                    variants={variants as ProductVariant[]}
-                    setVariants={(updatedVariants) => setVariants(updatedVariants as TempVariant[])}
+                    variants={variants[index].sizes}
+                    setVariants={(updatedVariants) => setVariants(prev => [
+                      ...prev.slice(0, index),
+                      {
+                        ...prev[index],
+                        sizes: updatedVariants
+                      },
+                      ...prev.slice(index + 1)
+                    ])}
                     index={index}
                     form={form}
                   />
@@ -755,7 +883,7 @@ export default function AddProductPage() {
                 {/* Product Images for variant */}
                 <FormField
                   control={form.control}
-                  name={`variants.${index}.productImages`}
+                  name={`colors.${index}.productImages`}
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Hình ảnh biến thể</FormLabel>
@@ -767,29 +895,34 @@ export default function AddProductPage() {
                             multiple
                             onChange={(e) => {
                               const files = Array.from(e.target.files || []);
-                              // Lưu files vào state variantImages
+                              const previewUrls = files.map(file => URL.createObjectURL(file));
+                              
+                              // Lưu files và preview URLs vào state
                               setVariantImages(prev => ({
                                 ...prev,
-                                [index]: files
+                                [index]: {
+                                  files,
+                                  previewUrls
+                                }
                               }));
-                              field.onChange(files);
                               
-                              // Cập nhật variant state
+                              // Cập nhật variant state với preview URLs
                               const updatedVariants = [...variants];
                               updatedVariants[index] = {
                                 ...updatedVariants[index],
-                                productImages: files.map(file => file.name)
+                                productImages: previewUrls
                               };
                               setVariants(updatedVariants);
                               
+                              field.onChange(previewUrls);
                               console.log(`Images added to variant ${index}:`, files.map(file => file.name));
                             }}
                           />
                           <div className="grid grid-cols-4 gap-2">
-                            {variantImages[index]?.map((file: File, imageIndex: number) => (
+                            {variantImages[index]?.previewUrls.map((previewUrl, imageIndex) => (
                               <div key={imageIndex} className="relative">
                                 <Image
-                                  src={URL.createObjectURL(file)}
+                                  src={previewUrl}
                                   alt={`Preview ${imageIndex}`}
                                   className="w-full h-24 object-cover rounded"
                                   width={100}
@@ -798,22 +931,27 @@ export default function AddProductPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    // Xóa ảnh khỏi variantImages
-                                    const newFiles = variantImages[index].filter((_, i) => i !== imageIndex);
+                                    // Remove the file and preview URL
+                                    const newFiles = variantImages[index].files.filter((_, i) => i !== imageIndex);
+                                    const newPreviewUrls = variantImages[index].previewUrls.filter((_, i) => i !== imageIndex);
+                                    
                                     setVariantImages(prev => ({
                                       ...prev,
-                                      [index]: newFiles
+                                      [index]: {
+                                        files: newFiles,
+                                        previewUrls: newPreviewUrls
+                                      }
                                     }));
                                     
-                                    // Cập nhật variant state
+                                    // Update variant state
                                     const updatedVariants = [...variants];
                                     updatedVariants[index] = {
                                       ...updatedVariants[index],
-                                      productImages: newFiles
+                                      productImages: newPreviewUrls
                                     };
                                     setVariants(updatedVariants);
                                     
-                                    field.onChange(newFiles);
+                                    field.onChange(newPreviewUrls);
                                     console.log(`Image removed from variant ${index}:`, imageIndex);
                                   }}
                                   className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full"
