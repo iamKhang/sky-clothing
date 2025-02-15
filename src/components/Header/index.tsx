@@ -34,10 +34,9 @@ import { useRouter } from 'next/navigation';
 
 const mainNav = [
   { title: "SHOP ALL", href: "/" },
-  { title: "TOPS", href: "/category/tops" },
-  { title: "BOTTOMS", href: "/category/bottoms" },
-  { title: "OUTERWEARS", href: "/category/outerwears" },
-  { title: "BAGS", href: "/category/bags" },
+  { title: "TOP", href: "/category/top" },
+  { title: "BOTTOM", href: "/category/bottom" },
+  { title: "OUTERWEAR", href: "/category/outerwear" },
   { title: "ACCESSORIES", href: "/category/accessories" },
   { title: "SALES", href: "/sales" },
 ];
@@ -291,33 +290,33 @@ export function Header() {
                             >
                               <div className="relative h-16 w-16 overflow-hidden rounded">
                                 <Image
-                                  src={item.variant.productImages[0]}
-                                  alt={item.variant.productName}
+                                  src={item.productImage}
+                                  alt={item.productName}
                                   fill
                                   className="object-cover"
                                 />
                               </div>
                               <div className="flex-1 grid gap-1">
                                 <h5 className="font-medium leading-none">
-                                  {item.variant.productName}
+                                  {item.productName}
                                 </h5>
                                 <p className="text-sm text-muted-foreground">
-                                  {item.variant.size} / {item.variant.color}
+                                  {item.size.size} / {item.color}
                                 </p>
                                 <div className="flex items-center justify-between text-sm">
-                                  <span>{item.quantity} × ${item.variant.quantity}</span>
-                                  <span className="font-medium">${item.itemTotal}</span>
+                                  <span>{item.quantity} × {item.itemTotal.toLocaleString()}đ</span>
+                                  <span className="font-medium">{item.itemTotal.toLocaleString()}đ</span>
                                 </div>
                               </div>
                             </div>
                           ))}
                         </div>
                       </ScrollArea>
-                      {cart?.items?.length > 0 && (
+                      {cart?.items && cart.items.length > 0 && (
                         <div className="grid gap-4">
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-medium">Tổng cộng</span>
-                            <span className="font-bold">${cart.totalAmount}</span>
+                            <span className="font-bold">{cart.totalAmount.toLocaleString()}đ</span>
                           </div>
                           <div className="grid gap-2">
                             <Link href="/cart">

@@ -1,12 +1,6 @@
-"use client";
-
-import { Button } from "@/components/ui/button";
-import { useUserStore } from "@/store/useUserStore";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import React, { useState, useEffect } from "react";
-import { colorMapping } from "@/utils/colorMapping";
-import { VariantSelectionModal } from "@/components/VariantSelectionModal";
+import axios from 'axios';
+import { ProductDetailClient } from './ProductDetailClient';
+import { notFound } from 'next/navigation';
 
 interface Size {
   sizeId: string;
@@ -40,171 +34,37 @@ interface Product {
   colors: Color[];
 }
 
-export default function ProductDetail({
+async function getProduct(productId: string): Promise<Product> {
+  try {
+    const { data } = await axios.get(`http://localhost:8080/api/products/${productId}`);
+    return data;
+  } catch (error) {
+    console.error("Error fetching product:", error);
+    notFound();
+  }
+}
+
+export async function generateMetadata({
   params,
 }: {
   params: { productId: string };
 }) {
-  const [product, setProduct] = useState<Product | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string>("");
-  const [selectedSize, setSelectedSize] = useState<string>("");
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalAction, setModalAction] = useState<"buy" | "cart" | null>(null);
-  const { user } = useUserStore();
-  const router = useRouter();
-
-  const productId = params.productId;
-
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const response = await fetch(
-          `http://localhost:8080/api/products/${productId}`
-        );
-        const data = await response.json();
-        setProduct(data);
-
-        // Set default color if available
-        if (data.colors.length > 0) {
-          setSelectedColor(data.colors[0].color);
-        }
-      } catch (error) {
-        console.error("Error fetching product:", error);
-      }
-    };
-
-    fetchProduct();
-  }, [productId]);
-
-  if (!product) return <div>Loading...</div>;
-
-  const selectedColorData = product.colors.find(c => c.color === selectedColor);
-  const currentImages = selectedColorData?.productImages || [product.mainImageUrl];
-
-  const handleColorSelect = (color: string) => {
-    setSelectedColor(color);
-    setCurrentImageIndex(0); // Reset image index when color changes
+  const product = await getProduct(params.productId);
+  
+  return {
+    title: product.name,
+    description: `${product.name} - Giá: ${product.price}VND`,
+    openGraph: {
+      images: [product.mainImageUrl],
+    },
   };
+}
 
-  const handleAddToCart = () => {
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-    setModalAction("cart");
-    setIsModalOpen(true);
-  };
-
-  const handleBuyNow = () => {
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-    setModalAction("buy");
-    setIsModalOpen(true);
-  };
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left side - Images */}
-        <div className="space-y-4">
-          <div className="relative aspect-square">
-            <Image
-              src={currentImages[currentImageIndex]}
-              alt={product.name}
-              fill
-              className="object-cover"
-            />
-          </div>
-          <div className="grid grid-cols-6 gap-2">
-            {currentImages.map((image, index) => (
-              <div 
-                key={index} 
-                className={`relative aspect-square cursor-pointer ${
-                  currentImageIndex === index ? 'border-2 border-black' : ''
-                }`}
-                onClick={() => setCurrentImageIndex(index)}
-              >
-                <Image
-                  src={image}
-                  alt={`${product.name} view ${index + 1}`}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right side - Product Info */}
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">{product.name}</h1>
-            <div className="flex items-center gap-4">
-              <span className="text-xl font-bold">
-                {new Intl.NumberFormat("vi-VN", {
-                  style: "currency",
-                  currency: "VND",
-                }).format(product.price)}
-              </span>
-            </div>
-          </div>
-
-          {/* Color Selection */}
-          <div>
-            <h3 className="font-medium mb-2">Màu sắc</h3>
-            <div className="flex gap-2">
-              {product.colors.map((color) => (
-                <button
-                  key={color.colorId}
-                  onClick={() => handleColorSelect(color.color)}
-                  className={`w-8 h-8 rounded-full border-2 ${
-                    selectedColor === color.color ? "border-black" : "border-gray-200"
-                  }`}
-                  style={{ backgroundColor: colorMapping[color.color] || color.color.toLowerCase() }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Size Chart */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium">Bảng size</h3>
-              {product.sizeChartUrl && (
-                <button 
-                  className="text-sm underline"
-                  onClick={() => window.open(product.sizeChartUrl, '_blank')}
-                >
-                  Xem bảng size
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4">
-            <Button
-              onClick={handleAddToCart}
-              className="flex-1 bg-white text-black border border-black hover:bg-gray-100"
-            >
-              Thêm vào giỏ
-            </Button>
-            <Button onClick={handleBuyNow} className="flex-1">
-              Mua ngay
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <VariantSelectionModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        productId={productId}
-        action={modalAction}
-      />
-    </div>
-  );
+export default async function ProductDetailPage({
+  params,
+}: {
+  params: { productId: string };
+}) {
+  const product = await getProduct(params.productId);
+  return <ProductDetailClient initialProduct={product} />;
 }

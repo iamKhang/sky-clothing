@@ -17,7 +17,7 @@ export default function CartPage() {
 
   const calculateTotal = () => {
     if (!cart || !cart.items) return 0
-    return cart.totalAmount * 23500 // Sử dụng totalAmount từ cart
+    return cart.totalAmount
   }
 
   const handleQuantityChange = (itemId: string, newQuantity: number) => {
@@ -57,20 +57,20 @@ export default function CartPage() {
                   <div className="flex gap-4 flex-1">
                     <div className="relative w-20 h-20">
                       <Image 
-                        src={item.variant.productImages[0]} 
-                        alt={item.variant.sku}
+                        src={item.productImage} 
+                        alt={item.productName}
                         fill
                         className="object-cover"
                       />
                     </div>
                     <div>
-                      <h3 className="font-medium">{item.variant.productName}</h3>
+                      <h3 className="font-medium">{item.productName}</h3>
                       <p className="text-sm text-gray-500">
-                        {item.variant.size} / {item.variant.color}
+                        {item.size.size} / {item.color}
                       </p>
-                      {item.variant.discountPercentage > 0 && (
+                      {item.size.discountPercentage > 0 && (
                         <p className="text-sm text-red-500">
-                          Giảm {item.variant.discountPercentage}%
+                          Giảm {item.size.discountPercentage}%
                         </p>
                       )}
                     </div>
@@ -78,7 +78,7 @@ export default function CartPage() {
                 </div>
                 
                 <div className="text-right lg:col-span-2">
-                  {(item.variant.quantity * 23500).toLocaleString()}đ
+                  {item.itemTotal.toLocaleString()}đ
                 </div>
                 
                 <div className="lg:col-span-2">
@@ -96,12 +96,12 @@ export default function CartPage() {
                       onChange={(e) => handleInputChange(item.cartItemId, e)}
                       className="w-12 text-center border-x"
                       min="1"
-                      max={item.variant.quantity}
+                      max={item.size.quantity}
                     />
                     <button 
                       className="p-2 hover:bg-gray-100"
                       onClick={() => handleQuantityChange(item.cartItemId, item.quantity + 1)}
-                      disabled={item.quantity >= item.variant.quantity}
+                      disabled={item.quantity >= item.size.quantity}
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -109,7 +109,7 @@ export default function CartPage() {
                 </div>
                 
                 <div className="text-right lg:col-span-2 font-medium">
-                  {(item.itemTotal * 23500).toLocaleString()}đ
+                  {item.itemTotal.toLocaleString()}đ
                 </div>
               </div>
             ))}

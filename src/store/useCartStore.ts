@@ -1,23 +1,28 @@
 import { create } from 'zustand';
 import axios from 'axios';
 import { useUserStore } from './useUserStore';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
-interface ProductVariant {
-  variantId: string;
-  productName: string;
+interface Size {
+  sizeId: string;
   sku: string;
-  color: string;
   size: string;
   quantity: number;
+  soldQuantity: number;
   discountPercentage: number;
-  productImages: string[];
+  active: boolean;
+  newProduct: boolean;
+  bestSeller: boolean;
 }
 
 interface CartItem {
   cartItemId: string;
-  variant: ProductVariant;
+  productName: string;
+  size: Size;
   quantity: number;
   itemTotal: number;
+  color: string;
+  productImage: string;
 }
 
 interface Cart {
@@ -61,68 +66,96 @@ const getCartFromLocalStorage = () => {
   }
 };
 
-export const useCartStore = create<CartState>((set) => ({
-  cart: getCartFromLocalStorage(),
-  fetchCart: async (jwt) => {
-    try {
-      const response = await axios.get('http://localhost:8080/api/cart/get', {
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-      
-      // Lưu cart vào localStorage
-      localStorage.setItem('cart', JSON.stringify(response.data));
-      set({ cart: response.data });
-    } catch (error) {
-      console.error('Error fetching cart:', error);
-      localStorage.removeItem('cart');
-      set({ cart: null });
-    }
-  },
-  clearCart: () => {
-    set({ cart: null });
-  },
-  updateQuantity: async (itemId, quantity) => {
-    try {
-      const user = useUserStore.getState().user;
-      if (!user?.jwt) {
-        throw new Error('User not authenticated');
-      }
-
-      await axios.put(
-        `http://localhost:8080/api/cart/update-quantity/${itemId}`,
-        { quantity },
-        {
-          headers: {
-            Authorization: `Bearer ${user.jwt}`,
-          },
+export const useCartStore = create<CartState>()(
+  persist(
+    (set) => ({
+      cart: null,
+      fetchCart: async (jwt) => {
+        if (!jwt) {
+          set({ cart: null });
+          return;
         }
-      );
 
-      // Fetch lại cart và cập nhật localStorage
-      await useCartStore.getState().fetchCart(user.jwt);
-    } catch (error) {
-      console.error('Error updating quantity:', error);
+        try {
+          const response = await axios.get('http://localhost:8080/api/cart/get', {
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+            },
+          });
+          
+          if (response.data) {
+            localStorage.setItem('cart-data', JSON.stringify(response.data));
+            set({ cart: response.data });
+          }
+        } catch (error) {
+          console.error('Error fetching cart:', error);
+          if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+            localStorage.removeItem('cart-data');
+            const { clearUser } = useUserStore.getState();
+            await clearUser();
+          }
+          set({ cart: null });
+        }
+      },
+      clearCart: () => {
+        localStorage.removeItem('cart-data');
+        set({ cart: null });
+      },
+      updateQuantity: async (itemId, quantity) => {
+        try {
+          const user = useUserStore.getState().user;
+          if (!user?.jwt) {
+            throw new Error('User not authenticated');
+          }
+
+          await axios.put(
+            `http://localhost:8080/api/cart/update-quantity/${itemId}`,
+            { quantity },
+            {
+              headers: {
+                Authorization: `Bearer ${user.jwt}`,
+              },
+            }
+          );
+
+          await useCartStore.getState().fetchCart(user.jwt);
+        } catch (error) {
+          console.error('Error updating quantity:', error);
+          if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+            localStorage.removeItem('cart-data');
+            const { clearUser } = useUserStore.getState();
+            await clearUser();
+          }
+        }
+      },
+      removeItem: async (itemId) => {
+        try {
+          const user = useUserStore.getState().user;
+          if (!user?.jwt) {
+            throw new Error('User not authenticated');
+          }
+
+          await axios.delete(`http://localhost:8080/api/cart/remove/${itemId}`, {
+            headers: {
+              Authorization: `Bearer ${user.jwt}`,
+            },
+          });
+
+          await useCartStore.getState().fetchCart(user.jwt);
+        } catch (error) {
+          console.error('Error removing item:', error);
+          if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+            localStorage.removeItem('cart-data');
+            const { clearUser } = useUserStore.getState();
+            await clearUser();
+          }
+        }
+      },
+    }),
+    {
+      name: 'cart-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ cart: state.cart })
     }
-  },
-  removeItem: async (itemId) => {
-    try {
-      const user = useUserStore.getState().user;
-      if (!user?.jwt) {
-        throw new Error('User not authenticated');
-      }
-
-      await axios.delete(`http://localhost:8080/api/cart/remove/${itemId}`, {
-        headers: {
-          Authorization: `Bearer ${user.jwt}`,
-        },
-      });
-
-      // Fetch lại cart và cập nhật localStorage
-      await useCartStore.getState().fetchCart(user.jwt);
-    } catch (error) {
-      console.error('Error removing item:', error);
-    }
-  },
-}));
+  )
+);

@@ -27,16 +27,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      
-      <body
-        // className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        // style={{overflowX: "hidden"}}
-      >
-        <AuthInitializer>
-          <Header />
-          {children}
-          <Footer />
-        </AuthInitializer>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <AuthInitializer />
+        <Header />
+        {children}
+        <Footer />
       </body>
     </html>
   );

@@ -121,7 +121,7 @@ export function VariantSelectionModal({ isOpen, onClose, productId, action }: Va
           'Authorization': `Bearer ${jwt}`
         },
         body: JSON.stringify({
-          variantId: selectedSizeData.sizeId,
+          sizeId: selectedSizeData.sizeId,
           quantity: quantity
         })
       });

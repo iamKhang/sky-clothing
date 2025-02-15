@@ -25,7 +25,7 @@ interface ProductResponse {
 
 export default function CategoryProducts() {
   const params = useParams();
-  const category = (params.category as string).slice(0, -1).toUpperCase();
+  const category = (params.category as string).toUpperCase();
   const [products, setProducts] = useState<Product[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
